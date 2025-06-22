@@ -62,7 +62,7 @@ class WelcomeScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(30.0),
                         ),
-                        backgroundColor: Colors.blueAccent,
+                        backgroundColor: Color(0xFF4F695B),
                       ),
                       child: Text(
                         'Login',

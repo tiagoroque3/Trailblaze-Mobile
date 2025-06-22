@@ -67,7 +67,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
     return Scaffold(
       key: _scaffoldKey, // Assign the key to Scaffold
       appBar: AppBar(
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Color(0xFF4F695B),
         leading: IconButton(
           icon: const Icon(Icons.menu), // Three lines button
           onPressed: () {
@@ -124,7 +124,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
           children: <Widget>[
             DrawerHeader(
               decoration: BoxDecoration(
-                color: Colors.blueAccent,
+                color: Color(0xFF4F695B),
               ),
               child: Text(
                 widget.isLoggedIn ? 'Bem-vindo, ${widget.username}' : 'Modo Visitante',

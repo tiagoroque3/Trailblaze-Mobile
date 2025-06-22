@@ -113,7 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Registar Conta'),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Color(0xFF4F695B),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -128,7 +128,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(
                   fontSize: 28.0,
                   fontWeight: FontWeight.bold,
-                  color: Colors.blueAccent,
+                  color: Color(0xFF4F695B),
                 ),
               ),
               const SizedBox(height: 30.0),
@@ -196,7 +196,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   : ElevatedButton(
                       onPressed: _registerButtonPressed,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
+                        backgroundColor: Color(0xFF4F695B),
                         padding: const EdgeInsets.symmetric(vertical: 16.0),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10.0),

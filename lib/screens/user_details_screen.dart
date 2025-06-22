@@ -128,7 +128,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Editar Conta'),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Color(0xFF4F695B),
       ),
       body: _isSaving
           ? const Center(child: CircularProgressIndicator())
@@ -393,7 +393,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Detalhes do Utilizador'),
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Color(0xFF4F695B),
         actions: [
           if (isRuRole) // Only show the button if the role is 'RU'
             IconButton(
@@ -460,7 +460,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                                   },
                                   child: const Text('Editar Conta'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blueAccent,
+                                    backgroundColor: Color(0xFF4F695B),
                                     foregroundColor: Colors.white,
                                     padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
