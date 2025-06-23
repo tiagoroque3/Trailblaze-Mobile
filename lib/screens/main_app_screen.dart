@@ -5,21 +5,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
 import 'package:trailblaze_app/screens/operation_screen.dart';
-
-// Corrected Google Maps import
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:trailblaze_app/screens/map_screen.dart'; // Import the new MapScreen
 
 class MainAppScreen extends StatefulWidget {
   final bool isLoggedIn;
   final String? username;
   final String? jwtToken;
+  final String? role; // New: Add role property
 
   const MainAppScreen({
     super.key,
     this.isLoggedIn = false,
     this.username,
     this.jwtToken,
+    this.role, // Initialize role
   });
 
   @override
@@ -29,117 +28,60 @@ class MainAppScreen extends StatefulWidget {
 class _MainAppScreenState extends State<MainAppScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  GoogleMapController? _mapController;
-  LatLng? _currentLocation;
-  Marker? _userLocationMarker;
+  String? _displayUsername;
+  String? _displayRole; // State variable to hold the role
 
   @override
   void initState() {
     super.initState();
-    _determinePosition(); // Start fetching location when the screen initializes
+    _displayUsername = widget.username;
+    _displayRole = widget.role;
+
+    // If logged in but role isn't provided (e.g., direct access or old login flow), fetch it.
+    if (widget.isLoggedIn && _displayRole == null) {
+      _fetchUserRole();
+    }
   }
 
-  // --- Location and Map Methods ---
-
-  Future<void> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    // Test if location services are enabled.
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      // Location services are not enabled don't continue
-      // accessing the position and request users of the
-      // App to enable the location services.
-      _showSnackBar('Location services are disabled. Please enable them.', isError: true);
-      return Future.error('Location services are disabled.');
+  /// Fetches the user's role from the backend.
+  /// This is called if the role isn't available when MainAppScreen loads.
+  Future<void> _fetchUserRole() async {
+    if (widget.username == null || widget.jwtToken == null) {
+      print('Cannot fetch role: username or JWT token is null.');
+      return;
     }
 
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        // Permissions are denied, next time you could try
-        // requesting permissions again (this is also where
-        // Android's shouldShowRequestPermissionRationale
-        // returned true. According to Android guidelines
-        // your App should show an explanatory UI now.
-        _showSnackBar('Location permissions are denied.', isError: true);
-        return Future.error('Location permissions are denied');
-      }
-    }
+    final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/${widget.username}');
 
-    if (permission == LocationPermission.deniedForever) {
-      // Permissions are denied forever, handle appropriately.
-      _showSnackBar('Location permissions are permanently denied. Please enable from app settings.', isError: true);
-      return Future.error(
-          'Location permissions are permanently denied, we cannot request permissions.');
-    }
-
-    // When we reach here, permissions are granted and we can
-    // continue accessing the position of the device.
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-
-    setState(() {
-      _currentLocation = LatLng(position.latitude, position.longitude);
-      _userLocationMarker = Marker(
-        markerId: const MarkerId('userLocation'),
-        position: _currentLocation!,
-        infoWindow: const InfoWindow(title: 'Your Location'),
+    try {
+      final response = await http.get(
+        userDetailsUrl,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer ${widget.jwtToken}',
+        },
       );
-    });
 
-    // Animate camera to current location if map is already initialized
-    _mapController?.animateCamera(
-      CameraUpdate.newLatLngZoom(_currentLocation!, 15), // Zoom level 15
-    );
-
-    _listenForLocationChanges(); // Start listening for continuous updates
-  }
-
-  void _listenForLocationChanges() {
-    const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Update every 10 meters
-    );
-
-    Geolocator.getPositionStream(locationSettings: locationSettings)
-        .listen((Position? position) {
-      if (position != null) {
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> userData = jsonDecode(response.body);
         setState(() {
-          _currentLocation = LatLng(position.latitude, position.longitude);
-          _userLocationMarker = Marker(
-            markerId: const MarkerId('userLocation'),
-            position: _currentLocation!,
-            infoWindow: const InfoWindow(title: 'Your Location'),
-          );
+          _displayRole = userData['role'] as String?;
+          if (_displayRole == null) {
+            print('Role not found in user details response.');
+          }
         });
-        // You can optionally animate camera to new location if desired
-        // _mapController?.animateCamera(
-        //   CameraUpdate.newLatLng(_currentLocation!),
-        // );
+      } else {
+        print('Failed to fetch user role: ${response.statusCode} - ${response.body}');
       }
-    });
-  }
-
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
-    // If location is already determined, move camera to it
-    if (_currentLocation != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(_currentLocation!, 15),
-      );
+    } catch (e) {
+      print('Error fetching user role: $e');
     }
   }
 
   // --- Authentication/Navigation Methods ---
 
   Future<void> _logout() async {
-    setState(() {
-      // Potentially show a loading indicator here if needed for logout API call
-    });
-
+    // Potentially show a loading indicator here if needed for logout API call
     if (widget.jwtToken != null) {
       final Uri logoutUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/logout/jwt');
 
@@ -166,20 +108,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwtToken');
     await prefs.remove('username');
+    await prefs.remove('userRole'); // Clear role from shared preferences
 
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(builder: (context) => LoginScreen()), // Go back to login screen
       (Route<dynamic> route) => false, // Remove all previous routes
-    );
-  }
-
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
-      ),
     );
   }
 
@@ -225,48 +159,54 @@ class _MainAppScreenState extends State<MainAppScreen> {
             _scaffoldKey.currentState?.openDrawer(); // Open the drawer
           },
         ),
-        title: Row(
+        title: Column( // Use a Column for multiline title
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                widget.isLoggedIn ? widget.username! : 'Olá Visitante!', // Show username or "Olá Visitante!"
-                style: const TextStyle(fontSize: 18),
+            Text(
+              widget.isLoggedIn ? 'Olá, ${_displayUsername ?? 'Utilizador'}!' : 'Olá Visitante!', // Show username or "Olá Visitante!"
+              style: const TextStyle(fontSize: 18),
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (widget.isLoggedIn && _displayRole != null) // Conditionally display role
+              Text(
+                'Cargo: ${_displayRole!}',
+                style: const TextStyle(fontSize: 14, color: Colors.white70),
                 overflow: TextOverflow.ellipsis,
               ),
-            ),
-            // Placeholder for notifications (middle part)
-            const Spacer(),
-            // Logout button or Login button
-            widget.isLoggedIn
-                ? ElevatedButton.icon(
-                    onPressed: _logout,
-                    icon: const Icon(Icons.logout, size: 18),
-                    label: const Text('Logout'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                  )
-                : ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => LoginScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.login, size: 18),
-                    label: const Text('Login'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                    ),
-                  ),
           ],
         ),
+        actions: [
+          // Logout button or Login button
+          widget.isLoggedIn
+              ? ElevatedButton.icon(
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Logout'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                )
+              : ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => LoginScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.login, size: 18),
+                  label: const Text('Login'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  ),
+                ),
+          const SizedBox(width: 10), // Add some spacing to the right of the button
+        ],
         toolbarHeight: 60, // Adjust height if needed
       ),
       drawer: Drawer(
@@ -278,7 +218,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 color: Color(0xFF4F695B),
               ),
               child: Text(
-                widget.isLoggedIn ? 'Bem-vindo, ${widget.username}' : 'Modo Visitante',
+                widget.isLoggedIn ? 'Bem-vindo, ${_displayUsername ?? 'Utilizador'}' : 'Modo Visitante',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -290,7 +230,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('User Details'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer
-                if (widget.isLoggedIn) {
+                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -310,7 +250,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Operation Management (PO)'),
               onTap: () {
                 Navigator.pop(context); // Close the drawer
-                if (widget.isLoggedIn) {
+                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -325,46 +265,68 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 }
               },
             ),
+            ListTile(
+              leading: const Icon(Icons.map), // Map icon
+              title: const Text('View Map'), // New menu item for the map
+              onTap: () {
+                Navigator.pop(context); // Close the drawer
+                // The map screen can be accessed by both logged-in and guest users.
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MapScreen(
+                      username: widget.username,
+                      jwtToken: widget.jwtToken,
+                    ),
+                  ),
+                );
+              },
+            ),
             // Add more menu items here
           ],
         ),
       ),
-      body: _currentLocation == null
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 10),
-                  Text('Fetching location...'),
-                ],
-              ),
-            )
-          : GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: _currentLocation!,
-                zoom: 15,
-              ),
-              myLocationEnabled: true, // Shows the blue dot for current location
-              myLocationButtonEnabled: true, // Shows the button to recenter on location
-              markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
-              // You can add other map features here like polygons, polylines etc.
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/logo.png', // Display the logo
+              height: 200,
             ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          if (_currentLocation != null && _mapController != null) {
-            _mapController!.animateCamera(
-              CameraUpdate.newLatLngZoom(_currentLocation!, 15),
-            );
-          } else {
-            _showSnackBar('Location not yet available or map not loaded.');
-          }
-        },
-        backgroundColor: const Color(0xFF4F695B),
-        child: const Icon(Icons.my_location, color: Colors.white),
+            const SizedBox(height: 20),
+            Text(
+              'Bem-vindo à TrailBlaze App!',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              widget.isLoggedIn
+                  ? 'Você está logado como ${_displayUsername ?? 'Utilizador'}.'
+                  : 'Você está no modo de visitante. Algumas funcionalidades podem estar limitadas.',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              onPressed: () {
+                _scaffoldKey.currentState?.openDrawer(); // Open drawer on button press
+              },
+              icon: const Icon(Icons.menu, color: Colors.white),
+              label: const Text(
+                'Abrir Menu',
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF4F695B),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
