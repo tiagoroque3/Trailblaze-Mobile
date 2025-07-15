@@ -311,7 +311,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
             const SizedBox(height: 10),
             Text(
               widget.isLoggedIn
-                  ? 'You are logged in as ${_displayUsername ?? 'User'}.'
+                  ? 'You are logged in as ${_displayUsername ?? 'User'}.\nRoles: ${_displayRoles?.join(', ') ?? 'No roles assigned'}'
                   : 'You are in guest mode. Some features may be limited.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
