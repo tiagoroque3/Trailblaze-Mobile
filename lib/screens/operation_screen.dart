@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/models/activity.dart';
-import 'package:trailblaze_app/models/operation.dart'; // Ensure this import is correct
-import 'package:trailblaze_app/models/occurrence.dart'; // Ensure this import is correct
+import 'package:trailblaze_app/models/operation.dart';
+import 'package:trailblaze_app/models/occurrence.dart';
 import 'package:trailblaze_app/utils/create_occurrence_request.dart';
 
 class OperationScreen extends StatefulWidget {
