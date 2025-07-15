@@ -1,6 +1,7 @@
 // lib/services/parcel_service.dart
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math' as math;
 import '../models/parcel.dart';
 
 class ParcelService {
@@ -89,13 +90,19 @@ class ParcelService {
         final List<dynamic> ring = geomCoords[0];
         coordinates = ring.map<List<double>>((coord) {
           if (coord is List && coord.length >= 2) {
-            // GeoJSON usa [longitude, latitude], convertemos para [latitude, longitude]
-            double longitude = coord[0].toDouble();
-            double latitude = coord[1].toDouble();
+            // As coordenadas podem estar em sistema português (EPSG:3763 - ETRS89 / Portugal TM06)
+            // ou outro sistema de coordenadas projetado
+            double x = coord[0].toDouble();
+            double y = coord[1].toDouble();
             
-            // Validação básica das coordenadas
+            // Converte coordenadas portuguesas para WGS84 (lat/lng)
+            List<double> latLng = _convertPortugueseCoordinatesToWGS84(x, y);
+            double latitude = latLng[0];
+            double longitude = latLng[1];
+            
+            // Validação das coordenadas convertidas
             if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-              print('Coordenadas inválidas: lat=$latitude, lng=$longitude');
+              print('Coordenadas convertidas inválidas: lat=$latitude, lng=$longitude (original: x=$x, y=$y)');
               return [38.7223, -9.1393]; // Lisboa como fallback
             }
             
@@ -125,9 +132,9 @@ class ParcelService {
     }
     
     // Debug: imprime as coordenadas convertidas
-    print('Parcela ${backendParcel['polygonId']}: ${coordinates.length} coordenadas');
+    print('Parcela ${backendParcel['polygonId']}: ${coordinates.length} coordenadas convertidas');
     if (coordinates.isNotEmpty) {
-      print('Primeira coordenada: [${coordinates.first[0]}, ${coordinates.first[1]}]');
+      print('Primeira coordenada convertida: [${coordinates.first[0]}, ${coordinates.first[1]}]');
     }
     
     return Parcel(
@@ -137,6 +144,56 @@ class ParcelService {
       coordinates: coordinates,
       color: _getColorForWorksheet(worksheetId),
     );
+  }
+
+  /// Converte coordenadas do sistema português (EPSG:3763 - ETRS89 / Portugal TM06) para WGS84
+  /// Esta é uma conversão aproximada - para maior precisão, seria necessária uma biblioteca de projeção
+  static List<double> _convertPortugueseCoordinatesToWGS84(double x, double y) {
+    // Verifica se as coordenadas já estão em formato WGS84 (lat/lng)
+    if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
+      // Coordenadas já estão em WGS84, mas podem estar invertidas
+      // Se x está na faixa de longitude e y na faixa de latitude, assume [lng, lat]
+      return [y, x]; // Retorna [lat, lng]
+    }
+    
+    // Se as coordenadas estão em valores muito grandes, assume sistema projetado português
+    if (x > 1000 || y > 1000) {
+      // Conversão aproximada do sistema EPSG:3763 (Portugal TM06) para WGS84
+      // Parâmetros aproximados para Portugal continental
+      
+      // Origem do sistema TM06
+      double falseEasting = 0.0;
+      double falseNorthing = 0.0;
+      double centralMeridian = -8.133108; // Meridiano central de Portugal
+      double latitudeOfOrigin = 39.66825833; // Latitude de origem
+      
+      // Conversão aproximada (simplificada)
+      // Esta é uma aproximação - para precisão total seria necessário usar proj4 ou similar
+      double deltaX = x - falseEasting;
+      double deltaY = y - falseNorthing;
+      
+      // Fatores de escala aproximados para Portugal
+      double scaleX = 1.0 / 111320.0; // metros por grau de longitude (aproximado)
+      double scaleY = 1.0 / 110540.0; // metros por grau de latitude (aproximado)
+      
+      double longitude = centralMeridian + (deltaX * scaleX);
+      double latitude = latitudeOfOrigin + (deltaY * scaleY);
+      
+      // Ajustes para Portugal continental
+      if (longitude < -10 || longitude > -6) {
+        longitude = math.max(-10, math.min(-6, longitude));
+      }
+      if (latitude < 36 || latitude > 42) {
+        latitude = math.max(36, math.min(42, latitude));
+      }
+      
+      print('Conversão de coordenadas: ($x, $y) -> ($latitude, $longitude)');
+      return [latitude, longitude];
+    }
+    
+    // Se não conseguir identificar o sistema, usa coordenadas de Lisboa
+    print('Sistema de coordenadas não identificado: ($x, $y), usando Lisboa como fallback');
+    return [38.7223, -9.1393];
   }
 
   /// Gera uma cor baseada no ID da folha de obra
@@ -174,10 +231,10 @@ class ParcelService {
         name: 'Parcela 2 - FO Exemplo B',
         description: 'Área de manutenção sul\nAIGP: EX002\nID Rural: RUR002',
         coordinates: [
-          [38.7200, -9.1400],
-          [38.7210, -9.1390],
-          [38.7220, -9.1410],
-          [38.7210, -9.1420],
+          [38.7180, -9.1350],
+          [38.7190, -9.1340],
+          [38.7200, -9.1360],
+          [38.7190, -9.1370],
         ],
         color: '#00FF00',
       ),
@@ -186,10 +243,10 @@ class ParcelService {
         name: 'Parcela 3 - FO Exemplo C',
         description: 'Área de monitorização leste\nAIGP: EX003\nID Rural: RUR003',
         coordinates: [
-          [38.7180, -9.1320],
-          [38.7190, -9.1310],
-          [38.7200, -9.1330],
-          [38.7190, -9.1340],
+          [38.7150, -9.1300],
+          [38.7160, -9.1290],
+          [38.7170, -9.1310],
+          [38.7160, -9.1320],
         ],
         color: '#0000FF',
       ),

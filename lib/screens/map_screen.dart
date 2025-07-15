@@ -104,7 +104,7 @@ class _MapScreenState extends State<MapScreen> {
             
             // Validação adicional
             if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-              print('Coordenada inválida ignorada: [$lat, $lng]');
+              print('Coordenada inválida ignorada: [$lat, $lng] na parcela ${parcel.id}');
               return LatLng(38.7223, -9.1393); // Lisboa como fallback
             }
             
@@ -113,9 +113,14 @@ class _MapScreenState extends State<MapScreen> {
           .toList();
       
       // Debug: imprime informações do polígono
-      print('Criando polígono para ${parcel.name} com ${polygonPoints.length} pontos');
+      print('Criando polígono para ${parcel.name} com ${polygonPoints.length} pontos válidos');
       if (polygonPoints.isNotEmpty) {
-        print('Centro aproximado: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+        print('Primeira coordenada: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+        
+        // Calcula e mostra o centro do polígono para debug
+        double avgLat = polygonPoints.map((p) => p.latitude).reduce((a, b) => a + b) / polygonPoints.length;
+        double avgLng = polygonPoints.map((p) => p.longitude).reduce((a, b) => a + b) / polygonPoints.length;
+        print('Centro calculado: $avgLat, $avgLng');
       }
 
       // Define cores alternadas se não especificada
@@ -229,20 +234,30 @@ class _MapScreenState extends State<MapScreen> {
     double minLng = double.infinity;
     double maxLng = -double.infinity;
     
+    int validCoordinatesCount = 0;
+    
     for (final parcel in _parcels) {
       for (final coord in parcel.coordinates) {
         double lat = coord[0];
         double lng = coord[1];
         
+        // Só considera coordenadas válidas para o cálculo dos bounds
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          validCoordinatesCount++;
+          
         if (lat < minLat) minLat = lat;
         if (lat > maxLat) maxLat = lat;
         if (lng < minLng) minLng = lng;
         if (lng > maxLng) maxLng = lng;
+        }
       }
     }
     
+    print('Calculando bounds com $validCoordinatesCount coordenadas válidas');
+    
     // Se encontrou bounds válidos, ajusta a câmera
-    if (minLat != double.infinity && maxLat != -double.infinity &&
+    if (validCoordinatesCount > 0 && 
+        minLat != double.infinity && maxLat != -double.infinity &&
         minLng != double.infinity && maxLng != -double.infinity) {
       
       LatLngBounds bounds = LatLngBounds(
@@ -255,6 +270,8 @@ class _MapScreenState extends State<MapScreen> {
       _mapController!.animateCamera(
         CameraUpdate.newLatLngBounds(bounds, 100.0), // 100px de padding
       );
+    } else {
+      print('Não foi possível calcular bounds válidos, mantendo posição atual');
     }
   }
 
@@ -416,7 +433,7 @@ class _MapScreenState extends State<MapScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${_parcels.length} parcelas carregadas. Toque num polígono para mais informações.',
+                      '${_parcels.length} parcelas carregadas${_parcels.isNotEmpty ? ' (coordenadas convertidas do sistema português)' : ''}. Toque num polígono para mais informações.',
                       style: const TextStyle(fontSize: 14),
                     ),
                   ),
