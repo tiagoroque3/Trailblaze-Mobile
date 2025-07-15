@@ -65,8 +65,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
         final Map<String, dynamic> userData = jsonDecode(response.body);
         setState(() {
           _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
-          if (_displayRoles == null) {
-            print('User roles not found in user details response.');
+          if (_displayRoles == null || _displayRoles!.isEmpty) {
+            print('User roles not found or empty in user details response.');
           }
         });
       } else {
@@ -134,6 +134,26 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRoleRequiredDialog(BuildContext context, String requiredRole) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Insufficient Permissions'),
+          content: Text('You need the "$requiredRole" role to access this feature.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
             ),
           ],
         );
@@ -232,18 +252,26 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Operation Management (PO)'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
+                if (widget.isLoggedIn && 
+                    widget.username != null && 
+                    widget.jwtToken != null &&
+                    (_displayRoles?.contains('PO') == true)) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => OperationScreen(
                         username: widget.username!,
                         jwtToken: widget.jwtToken!,
+                        userRoles: _displayRoles,
                       ),
                     ),
                   );
                 } else {
-                  _showGuestLoginDialog(context);
+                  if (!widget.isLoggedIn) {
+                    _showGuestLoginDialog(context);
+                  } else {
+                    _showRoleRequiredDialog(context, 'PO');
+                  }
                 }
               },
             ),
