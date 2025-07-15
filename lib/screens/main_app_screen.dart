@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
 import 'package:trailblaze_app/screens/operation_screen.dart';
-import 'package:trailblaze_app/screens/map_screen.dart'; // Import the new MapScreen
+import 'package:trailblaze_app/screens/map_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
   final bool isLoggedIn;
   final String? username;
   final String? jwtToken;
-  final String? role; // New: Add role property
+  final List<String>? roles; // Updated to a list of roles
 
   const MainAppScreen({
     super.key,
     this.isLoggedIn = false,
     this.username,
     this.jwtToken,
-    this.role, // Initialize role
+    this.roles,
   });
 
   @override
@@ -27,27 +27,26 @@ class MainAppScreen extends StatefulWidget {
 
 class _MainAppScreenState extends State<MainAppScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final _storage = const FlutterSecureStorage();
 
   String? _displayUsername;
-  String? _displayRole; // State variable to hold the role
+  List<String>? _displayRoles; // State variable to hold the roles
 
   @override
   void initState() {
     super.initState();
     _displayUsername = widget.username;
-    _displayRole = widget.role;
+    _displayRoles = widget.roles;
 
-    // If logged in but role isn't provided (e.g., direct access or old login flow), fetch it.
-    if (widget.isLoggedIn && _displayRole == null) {
-      _fetchUserRole();
+    if (widget.isLoggedIn && _displayRoles == null) {
+      _fetchUserRoles();
     }
   }
 
-  /// Fetches the user's role from the backend.
-  /// This is called if the role isn't available when MainAppScreen loads.
-  Future<void> _fetchUserRole() async {
+  /// Fetches the user's roles from the backend.
+  Future<void> _fetchUserRoles() async {
     if (widget.username == null || widget.jwtToken == null) {
-      print('Cannot fetch role: username or JWT token is null.');
+      print('Cannot fetch roles: username or JWT token is null.');
       return;
     }
 
@@ -65,23 +64,20 @@ class _MainAppScreenState extends State<MainAppScreen> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> userData = jsonDecode(response.body);
         setState(() {
-          _displayRole = userData['role'] as String?;
-          if (_displayRole == null) {
-            print('Role not found in user details response.');
+          _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
+          if (_displayRoles == null) {
+            print('Roles not found in user details response.');
           }
         });
       } else {
-        print('Failed to fetch user role: ${response.statusCode} - ${response.body}');
+        print('Failed to fetch user roles: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print('Error fetching user role: $e');
+      print('Error fetching user roles: $e');
     }
   }
 
-  // --- Authentication/Navigation Methods ---
-
   Future<void> _logout() async {
-    // Potentially show a loading indicator here if needed for logout API call
     if (widget.jwtToken != null) {
       final Uri logoutUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/logout/jwt');
 
@@ -104,16 +100,14 @@ class _MainAppScreenState extends State<MainAppScreen> {
       }
     }
 
-    // Clear locally stored token and navigate back to WelcomeScreen
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('jwtToken');
-    await prefs.remove('username');
-    await prefs.remove('userRole'); // Clear role from shared preferences
+    await _storage.delete(key: 'jwtToken');
+    await _storage.delete(key: 'username');
+    await _storage.delete(key: 'userRoles'); // Clear roles from secure storage
 
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => LoginScreen()), // Go back to login screen
-      (Route<dynamic> route) => false, // Remove all previous routes
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      (Route<dynamic> route) => false,
     );
   }
 
@@ -122,24 +116,24 @@ class _MainAppScreenState extends State<MainAppScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Acesso Restrito'),
-          content: const Text('Por favor, faça login para aceder a esta funcionalidade.'),
+          title: const Text('Restricted Access'),
+          content: const Text('Please log in to access this feature.'),
           actions: <Widget>[
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => LoginScreen()),
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
                 );
               },
-              child: const Text('Ir para Login'),
+              child: const Text('Go to Login'),
             ),
             TextButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
               },
-              child: const Text('Cancelar'),
+              child: const Text('Cancel'),
             ),
           ],
         );
@@ -150,33 +144,21 @@ class _MainAppScreenState extends State<MainAppScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey, // Assign the key to Scaffold
+      key: _scaffoldKey,
       appBar: AppBar(
         backgroundColor: const Color(0xFF4F695B),
         leading: IconButton(
-          icon: const Icon(Icons.menu), // Three lines button
+          icon: const Icon(Icons.menu),
           onPressed: () {
-            _scaffoldKey.currentState?.openDrawer(); // Open the drawer
+            _scaffoldKey.currentState?.openDrawer();
           },
         ),
-        title: Column( // Use a Column for multiline title
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.isLoggedIn ? 'Olá, ${_displayUsername ?? 'Utilizador'}!' : 'Olá Visitante!', // Show username or "Olá Visitante!"
-              style: const TextStyle(fontSize: 18),
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (widget.isLoggedIn && _displayRole != null) // Conditionally display role
-              Text(
-                'Cargo: ${_displayRole!}',
-                style: const TextStyle(fontSize: 14, color: Colors.white70),
-                overflow: TextOverflow.ellipsis,
-              ),
-          ],
+        title: Text(
+          widget.isLoggedIn ? 'Hello, ${_displayUsername ?? 'User'}!' : 'Hello Guest!',
+          style: const TextStyle(fontSize: 18),
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          // Logout button or Login button
           widget.isLoggedIn
               ? ElevatedButton.icon(
                   onPressed: _logout,
@@ -193,7 +175,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => LoginScreen()),
+                      MaterialPageRoute(builder: (context) => const LoginScreen()),
                     );
                   },
                   icon: const Icon(Icons.login, size: 18),
@@ -205,9 +187,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                   ),
                 ),
-          const SizedBox(width: 10), // Add some spacing to the right of the button
+          const SizedBox(width: 10),
         ],
-        toolbarHeight: 60, // Adjust height if needed
+        toolbarHeight: 60,
       ),
       drawer: Drawer(
         child: ListView(
@@ -218,7 +200,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 color: Color(0xFF4F695B),
               ),
               child: Text(
-                widget.isLoggedIn ? 'Bem-vindo, ${_displayUsername ?? 'Utilizador'}' : 'Modo Visitante',
+                widget.isLoggedIn ? 'Welcome, ${_displayUsername ?? 'User'}' : 'Guest Mode',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -229,7 +211,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               leading: const Icon(Icons.person),
               title: const Text('User Details'),
               onTap: () {
-                Navigator.pop(context); // Close the drawer
+                Navigator.pop(context);
                 if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
                   Navigator.push(
                     context,
@@ -249,7 +231,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               leading: const Icon(Icons.build),
               title: const Text('Operation Management (PO)'),
               onTap: () {
-                Navigator.pop(context); // Close the drawer
+                Navigator.pop(context);
                 if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
                   Navigator.push(
                     context,
@@ -266,11 +248,10 @@ class _MainAppScreenState extends State<MainAppScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.map), // Map icon
-              title: const Text('View Map'), // New menu item for the map
+              leading: const Icon(Icons.map),
+              title: const Text('View Map'),
               onTap: () {
-                Navigator.pop(context); // Close the drawer
-                // The map screen can be accessed by both logged-in and guest users.
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -282,7 +263,6 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 );
               },
             ),
-            // Add more menu items here
           ],
         ),
       ),
@@ -291,31 +271,31 @@ class _MainAppScreenState extends State<MainAppScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Image.asset(
-              'assets/images/logo.png', // Display the logo
+              'assets/images/logo.png',
               height: 200,
             ),
             const SizedBox(height: 20),
             Text(
-              'Bem-vindo à TrailBlaze App!',
+              'Welcome to the TrailBlaze App!',
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               widget.isLoggedIn
-                  ? 'Você está logado como ${_displayUsername ?? 'Utilizador'}.'
-                  : 'Você está no modo de visitante. Algumas funcionalidades podem estar limitadas.',
+                  ? 'You are logged in as ${_displayUsername ?? 'User'}.'
+                  : 'You are in guest mode. Some features may be limited.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
             ElevatedButton.icon(
               onPressed: () {
-                _scaffoldKey.currentState?.openDrawer(); // Open drawer on button press
+                _scaffoldKey.currentState?.openDrawer();
               },
               icon: const Icon(Icons.menu, color: Colors.white),
               label: const Text(
-                'Abrir Menu',
+                'Open Menu',
                 style: TextStyle(color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(

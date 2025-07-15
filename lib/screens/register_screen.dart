@@ -31,7 +31,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _registerButtonPressed() async {
     if (_passwordController.text != _confirmPasswordController.text) {
-      _showErrorDialog('As palavras-passe não correspondem.');
+      _showErrorDialog('Passwords do not match. Please try again.');
       return;
     }
 
@@ -67,7 +67,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (response.statusCode == 201) { // 201 Created for successful registration
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Conta registada com sucesso! Aguarda ativação.')),
+          SnackBar(content: Text('Acount registered successfully!')),
         );
         // Navigate to login screen after successful registration
         Navigator.pushReplacement(
@@ -76,15 +76,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       } else {
         final String errorMessage = response.body;
-        print('Registo falhou: ${response.statusCode} - $errorMessage');
+        print('Register failed: ${response.statusCode} - $errorMessage');
         _showErrorDialog(errorMessage);
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print('Erro durante o registo: $e');
-      _showErrorDialog('Ocorreu um erro. Por favor, tente novamente.');
+      print('An error ocurred during registration: $e');
+      _showErrorDialog('An error occurred during registration. Please try again later.');
     }
   }
 
@@ -93,7 +93,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Erro no Registo'),
+          title: const Text('Registration Error'),
           content: Text(message),
           actions: <Widget>[
             TextButton(
@@ -112,7 +112,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Registar Conta'),
+        title: const Text('Register Account'),
         backgroundColor: Color(0xFF4F695B),
       ),
       body: Center(
@@ -123,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               const Text(
-                'Criar Nova Conta',
+                'Create Your Account',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 28.0,
@@ -174,14 +174,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _confirmPasswordController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: 'Confirmar Password',
+                  labelText: 'Confirm Password',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
                   prefixIcon: const Icon(Icons.lock_reset),
                 ),
               ),
               const SizedBox(height: 16.0),
               SwitchListTile(
-                title: const Text('Tornar Perfil Público'),
+                title: const Text('Turn Public Profile On/Off'),
                 value: _isPublicProfile,
                 onChanged: (bool value) {
                   setState(() {
@@ -203,7 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                       ),
                       child: const Text(
-                        'Registar',
+                        'Register',
                         style: TextStyle(fontSize: 18.0, color: Colors.white),
                       ),
                     ),
