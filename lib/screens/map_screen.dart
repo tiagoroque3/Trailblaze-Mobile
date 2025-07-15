@@ -51,7 +51,7 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     try {
-      // Tenta buscar parcelas do servidor
+      // Tenta buscar parcelas das folhas de obra do servidor
       List<Parcel> parcels = await ParcelService.fetchParcels(
         jwtToken: widget.jwtToken,
       );
@@ -59,7 +59,9 @@ class _MapScreenState extends State<MapScreen> {
       // Se não conseguir dados do servidor, usa dados de exemplo
       if (parcels.isEmpty) {
         parcels = ParcelService.getMockParcels();
-        _showSnackBar('A usar dados de exemplo das folhas de obra');
+        _showSnackBar('A usar dados de exemplo das parcelas');
+      } else {
+        _showSnackBar('${parcels.length} parcelas carregadas das folhas de obra');
       }
 
       setState(() {
@@ -73,7 +75,7 @@ class _MapScreenState extends State<MapScreen> {
         _parcels = ParcelService.getMockParcels();
         _createPolygons();
       });
-      _showSnackBar('Erro ao carregar dados. A usar dados de exemplo.');
+      _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
     } finally {
       setState(() {
         _isLoadingParcels = false;
@@ -275,7 +277,7 @@ class _MapScreenState extends State<MapScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadParcels,
-            tooltip: 'Recarregar Folhas de Obra',
+            tooltip: 'Recarregar Parcelas',
           ),
         ],
       ),
@@ -305,7 +307,7 @@ class _MapScreenState extends State<MapScreen> {
                     CircularProgressIndicator(color: Colors.white),
                     SizedBox(height: 16),
                     Text(
-                      'A carregar folhas de obra...',
+                      'A carregar parcelas...',
                       style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
                   ],
@@ -336,7 +338,7 @@ class _MapScreenState extends State<MapScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${_parcels.length} folhas de obra carregadas. Toque num polígono para mais informações.',
+                      '${_parcels.length} parcelas carregadas. Toque num polígono para mais informações.',
                       style: const TextStyle(fontSize: 14),
                     ),
                   ),
