@@ -90,10 +90,33 @@ class _MapScreenState extends State<MapScreen> {
     for (int i = 0; i < _parcels.length; i++) {
       final parcel = _parcels[i];
       
+      // Validação das coordenadas antes de criar o polígono
+      if (parcel.coordinates.length < 3) {
+        print('Parcela ${parcel.id} tem menos de 3 coordenadas, ignorando');
+        continue;
+      }
+      
       // Converte as coordenadas para LatLng
       List<LatLng> polygonPoints = parcel.coordinates
-          .map((coord) => LatLng(coord[0], coord[1]))
+          .map((coord) {
+            double lat = coord[0];
+            double lng = coord[1];
+            
+            // Validação adicional
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+              print('Coordenada inválida ignorada: [$lat, $lng]');
+              return LatLng(38.7223, -9.1393); // Lisboa como fallback
+            }
+            
+            return LatLng(lat, lng);
+          })
           .toList();
+      
+      // Debug: imprime informações do polígono
+      print('Criando polígono para ${parcel.name} com ${polygonPoints.length} pontos');
+      if (polygonPoints.isNotEmpty) {
+        print('Centro aproximado: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+      }
 
       // Define cores alternadas se não especificada
       Color polygonColor;
@@ -118,6 +141,7 @@ class _MapScreenState extends State<MapScreen> {
           fillColor: polygonColor,
           strokeColor: polygonColor.withOpacity(0.8),
           strokeWidth: 2,
+          consumeTapEvents: true,
           onTap: () => _onPolygonTapped(parcel),
         ),
       );
@@ -126,6 +150,11 @@ class _MapScreenState extends State<MapScreen> {
     setState(() {
       _polygons = polygons;
     });
+    
+    // Se temos polígonos, ajusta a câmera para mostrar todos
+    if (polygons.isNotEmpty && _mapController != null) {
+      _fitCameraToPolygons();
+    }
   }
 
   /// Converte uma string hexadecimal para Color.
@@ -182,8 +211,49 @@ class _MapScreenState extends State<MapScreen> {
       
       LatLng center = LatLng(avgLat, avgLng);
       
+      print('Centrando mapa em: $avgLat, $avgLng');
+      
       _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(center, 15),
+        CameraUpdate.newLatLngZoom(center, 16),
+      );
+    }
+  }
+  
+  /// Ajusta a câmera para mostrar todos os polígonos
+  void _fitCameraToPolygons() {
+    if (_parcels.isEmpty || _mapController == null) return;
+    
+    // Calcula os bounds de todos os polígonos
+    double minLat = double.infinity;
+    double maxLat = -double.infinity;
+    double minLng = double.infinity;
+    double maxLng = -double.infinity;
+    
+    for (final parcel in _parcels) {
+      for (final coord in parcel.coordinates) {
+        double lat = coord[0];
+        double lng = coord[1];
+        
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+      }
+    }
+    
+    // Se encontrou bounds válidos, ajusta a câmera
+    if (minLat != double.infinity && maxLat != -double.infinity &&
+        minLng != double.infinity && maxLng != -double.infinity) {
+      
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
+      );
+      
+      print('Ajustando câmera para bounds: $minLat,$minLng to $maxLat,$maxLng');
+      
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 100.0), // 100px de padding
       );
     }
   }
@@ -255,6 +325,13 @@ class _MapScreenState extends State<MapScreen> {
   /// Callback quando o Google Map é criado.
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+    
+    // Se já temos polígonos carregados, ajusta a câmera
+    if (_polygons.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _fitCameraToPolygons();
+      });
+    }
   }
 
   /// Exibe uma SnackBar com mensagem.
@@ -287,14 +364,15 @@ class _MapScreenState extends State<MapScreen> {
             onMapCreated: _onMapCreated,
             initialCameraPosition: CameraPosition(
               target: _currentLocation ?? _defaultLocation,
-              zoom: 12,
+              zoom: 10,
             ),
             myLocationEnabled: true,
             myLocationButtonEnabled: false,
             markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
             polygons: _polygons,
+            mapType: MapType.hybrid, // Mostra satélite + estradas para melhor contexto
             onTap: (LatLng position) {
-              // Opcional: ação quando o mapa é tocado
+              print('Mapa tocado em: ${position.latitude}, ${position.longitude}');
             },
           ),
           if (_isLoadingParcels)

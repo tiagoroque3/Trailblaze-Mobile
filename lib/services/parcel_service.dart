@@ -89,22 +89,45 @@ class ParcelService {
         final List<dynamic> ring = geomCoords[0];
         coordinates = ring.map<List<double>>((coord) {
           if (coord is List && coord.length >= 2) {
-            // GeoJSON usa [longitude, latitude], mas queremos [latitude, longitude]
-            return [coord[1].toDouble(), coord[0].toDouble()];
+            // GeoJSON usa [longitude, latitude], convertemos para [latitude, longitude]
+            double longitude = coord[0].toDouble();
+            double latitude = coord[1].toDouble();
+            
+            // Validação básica das coordenadas
+            if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+              print('Coordenadas inválidas: lat=$latitude, lng=$longitude');
+              return [38.7223, -9.1393]; // Lisboa como fallback
+            }
+            
+            return [latitude, longitude];
           }
-          return [0.0, 0.0];
+          return [38.7223, -9.1393]; // Lisboa como fallback
         }).toList();
+        
+        // Remove coordenadas duplicadas no final (comum em polígonos GeoJSON)
+        if (coordinates.length > 1 && 
+            coordinates.first[0] == coordinates.last[0] && 
+            coordinates.first[1] == coordinates.last[1]) {
+          coordinates.removeLast();
+        }
       }
     }
     
     // Se não conseguiu extrair coordenadas, usa coordenadas padrão
     if (coordinates.isEmpty) {
+      print('Usando coordenadas padrão para parcela ${backendParcel['polygonId']}');
       coordinates = [
         [38.7223, -9.1393], // Lisboa
         [38.7233, -9.1383],
         [38.7243, -9.1403],
         [38.7233, -9.1413],
       ];
+    }
+    
+    // Debug: imprime as coordenadas convertidas
+    print('Parcela ${backendParcel['polygonId']}: ${coordinates.length} coordenadas');
+    if (coordinates.isNotEmpty) {
+      print('Primeira coordenada: [${coordinates.first[0]}, ${coordinates.first[1]}]');
     }
     
     return Parcel(
