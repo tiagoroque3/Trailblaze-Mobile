@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/screens/main_app_screen.dart';
+
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'package:trailblaze_app/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {

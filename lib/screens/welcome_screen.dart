@@ -93,7 +93,7 @@ class WelcomeScreen extends StatelessWidget {
                         side: BorderSide(color: Colors.white, width: 2),
                       ),
                       child: Text(
-                        'Registar',
+                        'Register',
                         style: TextStyle(fontSize: 20, color: Colors.white),
                       ),
                     ),
@@ -101,7 +101,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 20), // Space for the new text button
 
-                // "Prosseguir sem conta" text button
+                // "Guest" text button
                 TextButton(
                   onPressed: () {
                     Navigator.push(
@@ -110,7 +110,7 @@ class WelcomeScreen extends StatelessWidget {
                     );
                   },
                   child: Text(
-                    'Prosseguir sem conta',
+                    'Enter Guest Mode',
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.white,

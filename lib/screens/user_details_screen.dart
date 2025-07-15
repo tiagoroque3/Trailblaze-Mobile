@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 
 class EditAccountScreen extends StatefulWidget {
   final String username;
   final String jwtToken;
-  final Map<String, dynamic> userData; // Now receives all user data
+  final Map<String, dynamic> userData;
 
   const EditAccountScreen({
     super.key,
@@ -21,7 +21,6 @@ class EditAccountScreen extends StatefulWidget {
 }
 
 class _EditAccountScreenState extends State<EditAccountScreen> {
-  // Controllers for all editable fields based on UpdateRequest.java
   late TextEditingController _fullNameController;
   late TextEditingController _addressController;
   late TextEditingController _phoneController;
@@ -29,13 +28,11 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   late TextEditingController _residenceCountryController;
   late TextEditingController _nifController;
   late TextEditingController _ccController;
-  // Removed _isPublic as it will be handled by a separate resource/method
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    // Initialize controllers with existing data or empty string
     _fullNameController = TextEditingController(text: widget.userData['name'] ?? '');
     _addressController = TextEditingController(text: widget.userData['address'] ?? '');
     _phoneController = TextEditingController(text: widget.userData['phone'] ?? '');
@@ -64,8 +61,6 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
     final Uri updateUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/update');
 
-    // Only send fields that are part of UpdateRequest.java and are being changed
-    // Profile (isPublic) is explicitly removed here.
     final Map<String, dynamic> updateData = {
       'fullName': _fullNameController.text,
       'address': _addressController.text,
@@ -88,14 +83,14 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Conta atualizada com sucesso!')),
+          const SnackBar(content: Text('Account updated successfully!')),
         );
-        Navigator.pop(context, true); // Pop with 'true' to indicate success and trigger data refresh
+        Navigator.pop(context, true);
       } else {
-        _showErrorDialog(context, 'Falha ao atualizar conta: ${response.statusCode} - ${response.body}');
+        _showErrorDialog(context, 'Failed to update account: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      _showErrorDialog(context, 'Erro ao atualizar conta: $e');
+      _showErrorDialog(context, 'Error updating account: $e');
     } finally {
       setState(() {
         _isSaving = false;
@@ -108,7 +103,7 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Erro'),
+          title: const Text('Error'),
           content: Text(message),
           actions: <Widget>[
             TextButton(
@@ -127,8 +122,8 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Editar Conta'),
-        backgroundColor: Color(0xFF4F695B),
+        title: const Text('Edit Account'),
+        backgroundColor: const Color(0xFF4F695B),
       ),
       body: _isSaving
           ? const Center(child: CircularProgressIndicator())
@@ -136,23 +131,21 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Only editable fields based on UpdateRequest
-                  _buildEditableTextField(_fullNameController, 'Nome Completo', Icons.person),
-                  _buildEditableTextField(_addressController, 'Morada', Icons.home),
-                  _buildEditableTextField(_phoneController, 'Telefone', Icons.phone),
-                  _buildEditableTextField(_nationalityController, 'Nacionalidade', Icons.flag),
-                  _buildEditableTextField(_residenceCountryController, 'País de Residência', Icons.public),
+                  _buildEditableTextField(_fullNameController, 'Full Name', Icons.person),
+                  _buildEditableTextField(_addressController, 'Address', Icons.home),
+                  _buildEditableTextField(_phoneController, 'Phone', Icons.phone),
+                  _buildEditableTextField(_nationalityController, 'Nationality', Icons.flag),
+                  _buildEditableTextField(_residenceCountryController, 'Country of Residence', Icons.public),
                   _buildEditableTextField(_nifController, 'NIF', Icons.credit_card),
-                  _buildEditableTextField(_ccController, 'Cartão de Cidadão', Icons.credit_card),
-                  // Removed SwitchListTile for profile, as it should be handled by ProfileChangeResource
+                  _buildEditableTextField(_ccController, 'Citizen Card', Icons.credit_card),
                   const SizedBox(height: 30),
                   ElevatedButton(
                     onPressed: _saveChanges,
-                    child: const Text('Guardar Alterações'),
+                    child: const Text('Save Changes'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.blueAccent,
                       foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -162,7 +155,6 @@ class _EditAccountScreenState extends State<EditAccountScreen> {
     );
   }
 
-  // Use a separate widget for editable text fields
   Widget _buildEditableTextField(TextEditingController controller, String label, IconData icon) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -196,6 +188,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   String? _error;
+  final _storage = const FlutterSecureStorage();
 
   @override
   void initState() {
@@ -222,7 +215,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          _userData = jsonDecode(response.body); // Decode all returned data
+          _userData = jsonDecode(response.body);
         });
       } else {
         setState(() {
@@ -250,7 +243,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     final Uri toggleProfileUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/profile');
 
     try {
-      final response = await http.post( // Changed to POST as per ProfileChangeResource
+      final response = await http.post(
         toggleProfileUrl,
         headers: {
           'Content-Type': 'application/json; charset=UTF-8',
@@ -260,14 +253,14 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Perfil alterado com sucesso!')),
+          const SnackBar(content: Text('Profile visibility changed successfully!')),
         );
-        _fetchUserDetails(); // Refresh data to show updated profile status
+        _fetchUserDetails();
       } else {
-        _showErrorDialog(context, 'Falha ao alterar o perfil: ${response.statusCode} - ${response.body}');
+        _showErrorDialog(context, 'Failed to change profile visibility: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      _showErrorDialog(context, 'Erro ao alterar o perfil: $e');
+      _showErrorDialog(context, 'Error changing profile visibility: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -279,26 +272,24 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmar Eliminação'),
-        content: const Text('Tem certeza que deseja solicitar a eliminação da sua conta? Esta ação é irreversível.'),
+        title: const Text('Confirm Deletion'),
+        content: const Text('Are you sure you want to request the deletion of your account? This action is irreversible.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context), // Dismiss dialog
-            child: const Text('Cancelar'),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Dismiss dialog
+              Navigator.pop(context);
               setState(() {
-                _isLoading = true; // Show loading for deletion request
+                _isLoading = true;
               });
 
-              // This endpoint is still assumed to exist on your backend
-              // and perform a 'soft delete' or 'pending removal' action
               final Uri removeRequestUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/remove-request');
 
               try {
-                final response = await http.patch( // PATCH request for remove-request
+                final response = await http.patch(
                   removeRequestUrl,
                   headers: {
                     'Content-Type': 'application/json; charset=UTF-8',
@@ -312,21 +303,20 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
                 if (response.statusCode == 200) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Pedido de eliminação de conta submetido com sucesso!')),
+                    const SnackBar(content: Text('Account deletion request submitted successfully!')),
                   );
-                  // Immediately logout after requesting deletion
                   await _logoutUser();
                 } else {
-                  _showErrorDialog(context, 'Falha ao solicitar eliminação: ${response.statusCode} - ${response.body}');
+                  _showErrorDialog(context, 'Failed to request deletion: ${response.statusCode} - ${response.body}');
                 }
               } catch (e) {
                 setState(() {
                   _isLoading = false;
                 });
-                _showErrorDialog(context, 'Erro ao solicitar eliminação: $e');
+                _showErrorDialog(context, 'Error requesting deletion: $e');
               }
             },
-            child: const Text('Confirmar'),
+            child: const Text('Confirm'),
           ),
         ],
       ),
@@ -353,15 +343,13 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       print('Error during logout after deletion request: $e');
     }
 
-    // Clear local storage regardless of API logout success
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('jwtToken');
-    await prefs.remove('username');
+    await _storage.delete(key: 'jwtToken');
+    await _storage.delete(key: 'username');
+    await _storage.delete(key: 'userRoles');
 
-    // Navigate back to the login screen, clearing all previous routes
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (context) => LoginScreen()),
+      MaterialPageRoute(builder: (context) => const LoginScreen()),
       (Route<dynamic> route) => false,
     );
   }
@@ -371,7 +359,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Text('Erro'),
+          title: const Text('Error'),
           content: Text(message),
           actions: <Widget>[
             TextButton(
@@ -388,21 +376,22 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    bool isRuRole = _userData?['role'] == 'RU';
+    List<String> userRoles = (_userData?['roles'] as List<dynamic>?)?.cast<String>() ?? [];
+    bool isRuRole = userRoles.contains('RU');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Detalhes do Utilizador'),
-        backgroundColor: Color(0xFF4F695B),
+        title: const Text('User Details'),
+        backgroundColor: const Color(0xFF4F695B),
         actions: [
-          if (isRuRole) // Only show the button if the role is 'RU'
+          if (isRuRole)
             IconButton(
               icon: Icon(
-                _userData?['profile'] == 'PUBLICO' ? Icons.lock_open : Icons.lock,
+                _userData?['profile'] == 'PUBLIC' ? Icons.lock_open : Icons.lock,
                 color: Colors.white,
               ),
               onPressed: _toggleProfileVisibility,
-              tooltip: _userData?['profile'] == 'PUBLICO' ? 'Tornar Privado' : 'Tornar Público',
+              tooltip: _userData?['profile'] == 'PUBLIC' ? 'Make Private' : 'Make Public',
             ),
         ],
       ),
@@ -411,34 +400,32 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
           : _error != null
               ? Center(child: Text(_error!))
               : _userData == null || _userData!.isEmpty
-                  ? Center(child: Text('Nenhum dado de utilizador encontrado ou disponível.'))
+                  ? const Center(child: Text('No user data found or available.'))
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Display all attributes from the fetched userData
                           _buildUserInfoRow('Username', _userData!['username']),
                           _buildUserInfoRow('Email', _userData!['email']),
-                          _buildUserInfoRow('Nome', _userData!['name']),
-                          _buildUserInfoRow('Morada', _userData!['address']),
-                          _buildUserInfoRow('Telefone', _userData!['phone']),
-                          _buildUserInfoRow('Nacionalidade', _userData!['nationality']),
-                          _buildUserInfoRow('País de Residência', _userData!['residenceCountry']),
+                          _buildUserInfoRow('Name', _userData!['name']),
+                          _buildUserInfoRow('Address', _userData!['address']),
+                          _buildUserInfoRow('Phone', _userData!['phone']),
+                          _buildUserInfoRow('Nationality', _userData!['nationality']),
+                          _buildUserInfoRow('Country of Residence', _userData!['residenceCountry']),
                           _buildUserInfoRow('NIF', _userData!['nif']),
-                          _buildUserInfoRow('Cartão Cidadão', _userData!['cc']),
-                          _buildUserInfoRow('Data Emissão CC', _userData!['ccDe']),
-                          _buildUserInfoRow('Local Emissão CC', _userData!['ccLe']),
-                          _buildUserInfoRow('Validade CC', _userData!['ccV']),
-                          _buildUserInfoRow('Data de Nascimento', _userData!['d_nasc']),
-                          _buildUserInfoRow('Estado', _userData!['state']),
-                          _buildUserInfoRow('Perfil', _userData!['profile']),
-                          _buildUserInfoRow('Função', _userData!['role']),
-                          _buildUserInfoRow('Tipo de Registo', _userData!['registrationType']),
-                          _buildUserInfoRow('Criador', _userData!['creator']),
-                          // Password is not displayed
+                          _buildUserInfoRow('Citizen Card', _userData!['cc']),
+                          _buildUserInfoRow('Citizen Card Issue Date', _userData!['ccDe']),
+                          _buildUserInfoRow('Citizen Card Issue Location', _userData!['ccLe']),
+                          _buildUserInfoRow('Citizen Card Expiry', _userData!['ccV']),
+                          _buildUserInfoRow('Date of Birth', _userData!['d_nasc']),
+                          _buildUserInfoRow('State', _userData!['state']),
+                          _buildUserInfoRow('Profile', _userData!['profile']),
+                          _buildUserInfoRow('Roles', userRoles.join(', ')),
+                          _buildUserInfoRow('Registration Type', _userData!['registrationType']),
+                          _buildUserInfoRow('Creator', _userData!['creator']),
 
-                          SizedBox(height: 30),
+                          const SizedBox(height: 30),
                           Center(
                             child: Column(
                               children: [
@@ -450,30 +437,30 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                                         builder: (context) => EditAccountScreen(
                                           username: widget.username,
                                           jwtToken: widget.jwtToken,
-                                          userData: _userData!, // Pass all fetched data to Edit screen
+                                          userData: _userData!,
                                         ),
                                       ),
                                     );
                                     if (refresh == true) {
-                                      _fetchUserDetails(); // Refresh data if EditAccountScreen returned true
+                                      _fetchUserDetails();
                                     }
                                   },
-                                  child: const Text('Editar Conta'),
+                                  child: const Text('Edit Account'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(0xFF4F695B),
+                                    backgroundColor: const Color(0xFF4F695B),
                                     foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                 ),
-                                SizedBox(height: 20),
+                                const SizedBox(height: 20),
                                 ElevatedButton(
                                   onPressed: _requestAccountDeletion,
-                                  child: const Text('Eliminar Conta'),
+                                  child: const Text('Delete Account'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.redAccent,
                                     foregroundColor: Colors.white,
-                                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                 ),
@@ -493,16 +480,16 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 150, // Adjust width as needed for labels
+            width: 150,
             child: Text(
               '$label:',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ),
           Expanded(
             child: Text(
-              value?.toString() ?? 'N/A', // Display value or 'N/A' if null
-              style: TextStyle(fontSize: 16),
+              value?.toString() ?? 'N/A',
+              style: const TextStyle(fontSize: 16),
             ),
           ),
         ],
