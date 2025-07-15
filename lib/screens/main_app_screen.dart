@@ -11,7 +11,7 @@ class MainAppScreen extends StatefulWidget {
   final bool isLoggedIn;
   final String? username;
   final String? jwtToken;
-  final List<String>? roles; // Updated to a list of roles
+  final List<String>? roles; // List of user roles
 
   const MainAppScreen({
     super.key,
@@ -30,7 +30,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   final _storage = const FlutterSecureStorage();
 
   String? _displayUsername;
-  List<String>? _displayRoles; // State variable to hold the roles
+  List<String>? _displayRoles; // State variable to hold the list of roles
 
   @override
   void initState() {
@@ -46,7 +46,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   /// Fetches the user's roles from the backend.
   Future<void> _fetchUserRoles() async {
     if (widget.username == null || widget.jwtToken == null) {
-      print('Cannot fetch roles: username or JWT token is null.');
+      print('Cannot fetch user roles: username or JWT token is null.');
       return;
     }
 
@@ -66,7 +66,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
         setState(() {
           _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
           if (_displayRoles == null) {
-            print('Roles not found in user details response.');
+            print('User roles not found in user details response.');
           }
         });
       } else {
@@ -102,7 +102,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     await _storage.delete(key: 'jwtToken');
     await _storage.delete(key: 'username');
-    await _storage.delete(key: 'userRoles'); // Clear roles from secure storage
+    await _storage.delete(key: 'userRoles'); // Clear user roles from secure storage
 
     Navigator.pushAndRemoveUntil(
       context,

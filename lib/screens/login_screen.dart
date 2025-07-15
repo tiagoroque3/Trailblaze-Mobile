@@ -40,11 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print('Failed to load user details for role: ${response.statusCode} - ${response.body}');
+        print('Failed to load user details for roles: ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
-      print('Error fetching user details for role: $e');
+      print('Error fetching user details for roles: $e');
       return null;
     }
   }

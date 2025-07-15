@@ -376,8 +376,8 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> roles = (_userData?['roles'] as List<dynamic>?)?.cast<String>() ?? [];
-    bool isRuRole = roles.contains('RU');
+    List<String> userRoles = (_userData?['roles'] as List<dynamic>?)?.cast<String>() ?? [];
+    bool isRuRole = userRoles.contains('RU');
 
     return Scaffold(
       appBar: AppBar(
@@ -421,7 +421,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                           _buildUserInfoRow('Date of Birth', _userData!['d_nasc']),
                           _buildUserInfoRow('State', _userData!['state']),
                           _buildUserInfoRow('Profile', _userData!['profile']),
-                          _buildUserInfoRow('Roles', roles.join(', ')),
+                          _buildUserInfoRow('Roles', userRoles.join(', ')),
                           _buildUserInfoRow('Registration Type', _userData!['registrationType']),
                           _buildUserInfoRow('Creator', _userData!['creator']),
 
