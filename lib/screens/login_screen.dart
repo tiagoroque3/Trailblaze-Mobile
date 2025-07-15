@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/screens/main_app_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:trailblaze_app/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -16,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
+  final _storage = const FlutterSecureStorage();
 
   @override
   void dispose() {
@@ -24,8 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Fetches detailed user information, including the role.
-  /// This is a helper function to get the full user data after login.
   Future<Map<String, dynamic>?> _fetchUserDetails(String username, String jwtToken) async {
     final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/$username');
 
@@ -41,11 +39,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        print('Failed to load user details for role: ${response.statusCode} - ${response.body}');
+        print('Failed to load user details for roles: ${response.statusCode} - ${response.body}');
         return null;
       }
     } catch (e) {
-      print('Error fetching user details for role: $e');
+      print('Error fetching user details for roles: $e');
       return null;
     }
   }
@@ -76,21 +74,17 @@ class _LoginScreenState extends State<LoginScreen> {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         final String token = responseBody['token'];
 
-        // Now, fetch the full user details to get the role
         final Map<String, dynamic>? userData = await _fetchUserDetails(username, token);
-        String? userRole = userData?['role'] as String?;
+        List<String>? userRoles = (userData?['roles'] as List<dynamic>?)?.cast<String>();
 
-        // Store token, username, and role locally
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('jwtToken', token);
-        await prefs.setString('username', username);
-        if (userRole != null) {
-          await prefs.setString('userRole', userRole);
+        await _storage.write(key: 'jwtToken', value: token);
+        await _storage.write(key: 'username', value: username);
+        if (userRoles != null) {
+          await _storage.write(key: 'userRoles', value: jsonEncode(userRoles));
         }
 
-        print('Login successful! Token: $token, Role: $userRole');
+        print('Login successful! Token: $token, Roles: $userRoles');
 
-        // Navigate to MainAppScreen, passing login details and role
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -98,13 +92,13 @@ class _LoginScreenState extends State<LoginScreen> {
               isLoggedIn: true,
               username: username,
               jwtToken: token,
-              role: userRole, // Pass the fetched role
+              roles: userRoles,
             ),
           ),
         );
       } else {
         final String errorMessage = response.body;
-        print('Login failed: ${response.statusCode} - ${response.body}');
+        print('Login failed: ${response.statusCode} - $errorMessage');
         _showErrorDialog(errorMessage);
       }
     } catch (e) {
@@ -146,58 +140,58 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Color(0xFF4F695B), // Your primary green
-              Color(0xFF7f9e8e), // Lighter green for gradient
+              Color(0xFF4F695B),
+              Color(0xFF7f9e8e),
             ],
           ),
         ),
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0), // Padding around the card
+            padding: const EdgeInsets.all(20.0),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 450), // Max width similar to CSS
+              constraints: const BoxConstraints(maxWidth: 450),
               child: Container(
-                padding: const EdgeInsets.all(40.0), // Padding inside the card
+                padding: const EdgeInsets.all(40.0),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.95), // White with slight transparency
-                  borderRadius: BorderRadius.circular(20.0), // Rounded corners for the card
+                  color: Colors.white.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(20.0),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
-                      blurRadius: 20, // Increased blur for a softer shadow
-                      offset: const Offset(0, 10), // Adjusted offset
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
                   ],
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, // Wrap content tightly
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
-                    Column( // Group logo and text
+                    Column(
                       children: [
                         Image.asset(
-                          'assets/images/logo.png', // Your logo
+                          'assets/images/logo.png',
                           height: 100,
-                          width: 100, // Ensure width is set for proper scaling
+                          width: 100,
                         ),
                         const SizedBox(height: 10),
-                        Text(
+                        const Text(
                           'Welcome Back',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 28.0,
                             fontWeight: FontWeight.bold,
-                            color: const Color(0xFF4F695B), // Use primary green
+                            color: Color(0xFF4F695B),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
+                        const Text(
                           'Sign in to continue your journey',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16.0,
-                            color: const Color(0xFF7f9e8e), // Lighter green text
+                            color: Color(0xFF7f9e8e),
                           ),
                         ),
                       ],
@@ -208,7 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         labelText: 'Username or Email',
-                        hintText: 'Enter your username or email', // Hint text
+                        hintText: 'Enter your username or email',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: const BorderSide(color: Color(0xFFe0e0e0), width: 2),
@@ -217,16 +211,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
                         ),
-                        prefixIcon: const Icon(Icons.person, color: Color(0xFF4F695B)), // Icon color
+                        prefixIcon: const Icon(Icons.person, color: Color(0xFF4F695B)),
                       ),
                     ),
-                    const SizedBox(height: 20.0), // Space adjusted to match CSS
+                    const SizedBox(height: 20.0),
                     TextField(
                       controller: _passwordController,
                       obscureText: true,
                       decoration: InputDecoration(
                         labelText: 'Password',
-                        hintText: 'Enter your password', // Hint text
+                        hintText: 'Enter your password',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: const BorderSide(color: Color(0xFFe0e0e0), width: 2),
@@ -235,24 +229,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           borderRadius: BorderRadius.circular(10.0),
                           borderSide: BorderSide(color: Theme.of(context).primaryColor, width: 2),
                         ),
-                        prefixIcon: const Icon(Icons.lock, color: Color(0xFF4F695B)), // Icon color
+                        prefixIcon: const Icon(Icons.lock, color: Color(0xFF4F695B)),
                       ),
                     ),
-                    const SizedBox(height: 25.0), // Space adjusted to match CSS
+                    const SizedBox(height: 25.0),
                     _isLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : Container( // Wrap button for gradient
+                        : Container(
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                                 colors: [
-                                  Color(0xFF4F695B), // Your primary green
-                                  Color(0xFF7f9e8e), // Lighter green for gradient
+                                  Color(0xFF4F695B),
+                                  Color(0xFF7f9e8e),
                                 ],
                               ),
                               borderRadius: BorderRadius.circular(10.0),
-                              boxShadow: [ // Add button shadow on hover effect
+                              boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF4F695B).withOpacity(0.3),
                                   blurRadius: 8,
@@ -263,16 +257,16 @@ class _LoginScreenState extends State<LoginScreen> {
                             child: ElevatedButton(
                               onPressed: _loginButtonPressed,
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent, // Make button transparent to show gradient
-                                shadowColor: Colors.transparent, // No shadow from button itself
-                                padding: const EdgeInsets.symmetric(vertical: 14.0), // Adjusted padding
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(vertical: 14.0),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10.0),
                                 ),
-                                elevation: 0, // No default elevation
+                                elevation: 0,
                               ),
                               child: const Text(
-                                'Sign In', // Changed text to "Sign In"
+                                'Sign In',
                                 style: TextStyle(
                                   fontSize: 16.0,
                                   color: Colors.white,
@@ -282,20 +276,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                     const SizedBox(height: 20.0),
-                    Row( // Divider for 'or'
+                    const Row(
                       children: [
-                        const Expanded(child: Divider(color: Color(0xFFe0e0e0))),
+                        Expanded(child: Divider(color: Color(0xFFe0e0e0))),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 15.0),
+                          padding: EdgeInsets.symmetric(horizontal: 15.0),
                           child: Text(
                             'or',
                             style: TextStyle(
-                              color: const Color(0xFF7f9e8e),
+                              color: Color(0xFF7f9e8e),
                               fontSize: 14,
                             ),
                           ),
                         ),
-                        const Expanded(child: Divider(color: Color(0xFFe0e0e0))),
+                        Expanded(child: Divider(color: Color(0xFFe0e0e0))),
                       ],
                     ),
                     const SizedBox(height: 20.0),
@@ -310,10 +304,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         textAlign: TextAlign.center,
                         text: TextSpan(
                           text: 'Don\'t have an account? ',
-                          style: TextStyle(color: const Color(0xFF7f9e8e), fontSize: 16),
+                          style: const TextStyle(color: Color(0xFF7f9e8e), fontSize: 16),
                           children: [
                             TextSpan(
-                              text: 'Create Account', // Changed text
+                              text: 'Create Account',
                               style: TextStyle(
                                 color: Theme.of(context).primaryColor,
                                 fontWeight: FontWeight.bold,
@@ -327,11 +321,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 20.0),
                     TextButton(
                       onPressed: () {
-                        // Implement back to home/welcome screen logic if needed
-                        Navigator.pop(context); // Goes back to WelcomeScreen
+                        Navigator.pop(context);
                       },
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF7f9e8e), // Lighter green for text button
+                        foregroundColor: const Color(0xFF7f9e8e),
                         textStyle: const TextStyle(fontSize: 14),
                       ),
                       child: const Text('← Back to Home'),
