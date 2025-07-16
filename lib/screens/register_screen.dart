@@ -16,7 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _fullNameController = TextEditingController();
-  bool _isPublicProfile = false; // Default to private
+  bool _publicProfile = false; // Default to private
   bool _isLoading = false;
 
   @override
@@ -57,7 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': email,
           'password': password,
           'fullName': fullName,
-          'isPublic': _isPublicProfile, // Send the profile visibility preference
+          'publicProfile': _publicProfile, // Send the profile visibility preference
         }),
       );
 
@@ -182,13 +182,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16.0),
               SwitchListTile(
                 title: const Text('Turn Public Profile On/Off'),
-                value: _isPublicProfile,
+                value: _publicProfile,
                 onChanged: (bool value) {
                   setState(() {
-                    _isPublicProfile = value;
+                    _publicProfile = value;
                   });
                 },
-                secondary: Icon(_isPublicProfile ? Icons.public : Icons.vpn_lock),
+                secondary: Icon(_publicProfile ? Icons.public : Icons.vpn_lock),
               ),
               const SizedBox(height: 24.0),
               _isLoading

@@ -42,6 +42,8 @@ dependencies:
   shared_preferences: ^2.2.3
   flutter_secure_storage: ^9.0.0
 
+  proj4dart: ^2.1.0 
+
   # Maps + geolocator
   google_maps_flutter: ^2.10.1
   geolocator: ^12.0.0
@@ -70,6 +72,8 @@ flutter:
   assets:
     - assets/images/logo.png
     - assets/images/landscape.png
+
+
 
   # To add assets to your application, add an assets section, like this:
   # assets:

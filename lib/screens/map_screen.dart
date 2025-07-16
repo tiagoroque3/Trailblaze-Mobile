@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import '../models/parcel.dart';
+import '../services/parcel_service.dart';
 
-/// Represents the screen dedicated to displaying the map.
-/// This screen is accessible to all users, regardless of login status.
+/// Representa o ecrã dedicado à exibição do mapa com polígonos das folhas de obra.
+/// Este ecrã é acessível a todos os utilizadores, independentemente do estado de login.
 class MapScreen extends StatefulWidget {
   final String? username;
   final String? jwtToken;
@@ -19,70 +21,298 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  // Controller for the Google Map instance.
+  // Controlador para a instância do Google Map.
   GoogleMapController? _mapController;
-  // Stores the current location of the user.
+  // Armazena a localização atual do utilizador.
   LatLng? _currentLocation;
-  // Marker to display the user's current location on the map.
+  // Marcador para exibir a localização atual do utilizador no mapa.
   Marker? _userLocationMarker;
-  // State to manage loading indicator during location fetch.
+  // Estado para gerir o indicador de carregamento durante a busca de localização.
   bool _isLoadingLocation = false;
+  // Estado para gerir o carregamento das parcelas.
+  bool _isLoadingParcels = false;
+  // Lista de parcelas/folhas de obra.
+  List<Parcel> _parcels = [];
+  // Conjunto de polígonos para exibir no mapa.
+  Set<Polygon> _polygons = {};
+  // Localização padrão (Lisboa, Portugal)
+  static const LatLng _defaultLocation = LatLng(38.7223, -9.1393);
 
   @override
   void initState() {
     super.initState();
-    // No automatic location fetch on init anymore.
-    // User will trigger it via a button.
+    _loadParcels();
   }
 
-  /// Determines the current position of the device.
-  ///
-  /// Checks for location service enablement and permissions. If not enabled or
-  /// permissions are denied, it shows appropriate messages to the user.
-  /// If successful, it updates `_currentLocation` and `_userLocationMarker`
-  /// and moves the map camera to the current location.
+  /// Carrega as parcelas/folhas de obra do servidor ou dados de exemplo.
+  Future<void> _loadParcels() async {
+    setState(() {
+      _isLoadingParcels = true;
+    });
+
+    try {
+      // Tenta buscar parcelas das folhas de obra do servidor
+      List<Parcel> parcels = await ParcelService.fetchParcels(
+        jwtToken: widget.jwtToken,
+      );
+
+      // Se não conseguir dados do servidor, usa dados de exemplo
+      if (parcels.isEmpty) {
+        parcels = ParcelService.getMockParcels();
+        _showSnackBar('A usar dados de exemplo das parcelas');
+      } else {
+        _showSnackBar('${parcels.length} parcelas carregadas das folhas de obra');
+      }
+
+      setState(() {
+        _parcels = parcels;
+        _createPolygons();
+      });
+    } catch (e) {
+      print('Erro ao carregar parcelas: $e');
+      // Em caso de erro, usa dados de exemplo
+      setState(() {
+        _parcels = ParcelService.getMockParcels();
+        _createPolygons();
+      });
+      _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
+    } finally {
+      setState(() {
+        _isLoadingParcels = false;
+      });
+    }
+  }
+
+  /// Cria os polígonos a partir das parcelas carregadas.
+  void _createPolygons() {
+    Set<Polygon> polygons = {};
+
+    for (int i = 0; i < _parcels.length; i++) {
+      final parcel = _parcels[i];
+      
+      // Validação das coordenadas antes de criar o polígono
+      if (parcel.coordinates.length < 3) {
+        print('Parcela ${parcel.id} tem menos de 3 coordenadas, ignorando');
+        continue;
+      }
+      
+      // Converte as coordenadas para LatLng
+      List<LatLng> polygonPoints = parcel.coordinates
+          .map((coord) {
+            double lat = coord[0];
+            double lng = coord[1];
+            
+            // Validação adicional
+            if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+              print('Coordenada inválida ignorada: [$lat, $lng] na parcela ${parcel.id}');
+              return LatLng(38.7223, -9.1393); // Lisboa como fallback
+            }
+            
+            return LatLng(lat, lng);
+          })
+          .toList();
+      
+      // Debug: imprime informações do polígono
+      print('Criando polígono para ${parcel.name} com ${polygonPoints.length} pontos válidos');
+      if (polygonPoints.isNotEmpty) {
+        print('Primeira coordenada: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+        
+        // Calcula e mostra o centro do polígono para debug
+        double avgLat = polygonPoints.map((p) => p.latitude).reduce((a, b) => a + b) / polygonPoints.length;
+        double avgLng = polygonPoints.map((p) => p.longitude).reduce((a, b) => a + b) / polygonPoints.length;
+        print('Centro calculado: $avgLat, $avgLng');
+      }
+
+      // Define cores alternadas se não especificada
+      Color polygonColor;
+      if (parcel.color != null) {
+        polygonColor = _hexToColor(parcel.color!);
+      } else {
+        // Cores alternadas
+        List<Color> colors = [
+          Colors.red.withOpacity(0.3),
+          Colors.green.withOpacity(0.3),
+          Colors.blue.withOpacity(0.3),
+          Colors.orange.withOpacity(0.3),
+          Colors.purple.withOpacity(0.3),
+        ];
+        polygonColor = colors[i % colors.length];
+      }
+
+      polygons.add(
+        Polygon(
+          polygonId: PolygonId(parcel.id),
+          points: polygonPoints,
+          fillColor: polygonColor,
+          strokeColor: polygonColor.withOpacity(0.8),
+          strokeWidth: 2,
+          consumeTapEvents: true,
+          onTap: () => _onPolygonTapped(parcel),
+        ),
+      );
+    }
+
+    setState(() {
+      _polygons = polygons;
+    });
+    
+    // Se temos polígonos, ajusta a câmera para mostrar todos
+    if (polygons.isNotEmpty && _mapController != null) {
+      _fitCameraToPolygons();
+    }
+  }
+
+  /// Converte uma string hexadecimal para Color.
+  Color _hexToColor(String hexString) {
+    final buffer = StringBuffer();
+    if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
+    buffer.write(hexString.replaceFirst('#', ''));
+    return Color(int.parse(buffer.toString(), radix: 16)).withOpacity(0.3);
+  }
+
+  /// Callback quando um polígono é tocado.
+  void _onPolygonTapped(Parcel parcel) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(parcel.name),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('ID: ${parcel.id}'),
+              const SizedBox(height: 8),
+              Text('Descrição: ${parcel.description}'),
+              const SizedBox(height: 8),
+              Text('Coordenadas: ${parcel.coordinates.length} pontos'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Fechar'),
+            ),
+            if (widget.jwtToken != null)
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _centerMapOnParcel(parcel);
+                },
+                child: const Text('Centrar no Mapa'),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Centra o mapa numa parcela específica.
+  void _centerMapOnParcel(Parcel parcel) {
+    if (_mapController != null && parcel.coordinates.isNotEmpty) {
+      // Calcula o centro do polígono
+      double avgLat = parcel.coordinates.map((coord) => coord[0]).reduce((a, b) => a + b) / parcel.coordinates.length;
+      double avgLng = parcel.coordinates.map((coord) => coord[1]).reduce((a, b) => a + b) / parcel.coordinates.length;
+      
+      LatLng center = LatLng(avgLat, avgLng);
+      
+      print('Centrando mapa em: $avgLat, $avgLng');
+      
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(center, 16),
+      );
+    }
+  }
+  
+  /// Ajusta a câmera para mostrar todos os polígonos
+  void _fitCameraToPolygons() {
+    if (_parcels.isEmpty || _mapController == null) return;
+    
+    // Calcula os bounds de todos os polígonos
+    double minLat = double.infinity;
+    double maxLat = -double.infinity;
+    double minLng = double.infinity;
+    double maxLng = -double.infinity;
+    
+    int validCoordinatesCount = 0;
+    
+    for (final parcel in _parcels) {
+      for (final coord in parcel.coordinates) {
+        double lat = coord[0];
+        double lng = coord[1];
+        
+        // Só considera coordenadas válidas para o cálculo dos bounds
+        if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          validCoordinatesCount++;
+          
+        if (lat < minLat) minLat = lat;
+        if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng;
+        if (lng > maxLng) maxLng = lng;
+        }
+      }
+    }
+    
+    print('Calculando bounds com $validCoordinatesCount coordenadas válidas');
+    
+    // Se encontrou bounds válidos, ajusta a câmera
+    if (validCoordinatesCount > 0 && 
+        minLat != double.infinity && maxLat != -double.infinity &&
+        minLng != double.infinity && maxLng != -double.infinity) {
+      
+      LatLngBounds bounds = LatLngBounds(
+        southwest: LatLng(minLat, minLng),
+        northeast: LatLng(maxLat, maxLng),
+      );
+      
+      print('Ajustando câmera para bounds: $minLat,$minLng to $maxLat,$maxLng');
+      
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngBounds(bounds, 100.0), // 100px de padding
+      );
+    } else {
+      print('Não foi possível calcular bounds válidos, mantendo posição atual');
+    }
+  }
+
+  /// Determina a posição atual do dispositivo.
   Future<void> _determinePosition() async {
     setState(() {
-      _isLoadingLocation = true; // Show loading indicator
+      _isLoadingLocation = true;
     });
 
     bool serviceEnabled;
     LocationPermission permission;
 
-    // Test if location services are enabled.
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      _showSnackBar('Location services are disabled. Please enable them.', isError: true);
+      _showSnackBar('Os serviços de localização estão desativados. Por favor, ative-os.', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
-      return; // Exit if services are disabled
+      return;
     }
 
-    // Check for location permissions.
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      // Request permissions if denied.
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        _showSnackBar('Location permissions are denied.', isError: true);
+        _showSnackBar('Permissões de localização negadas.', isError: true);
         setState(() {
           _isLoadingLocation = false;
         });
-        return; // Exit if permissions are denied
+        return;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      // Handle cases where permissions are permanently denied.
-      _showSnackBar('Location permissions are permanently denied. Please enable from app settings.', isError: true);
+      _showSnackBar('Permissões de localização permanentemente negadas. Por favor, ative nas definições da aplicação.', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
-      return; // Exit if permissions are permanently denied
+      return;
     }
 
-    // Permissions are granted, get the current position.
     try {
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
@@ -92,40 +322,36 @@ class _MapScreenState extends State<MapScreen> {
         _userLocationMarker = Marker(
           markerId: const MarkerId('userLocation'),
           position: _currentLocation!,
-          infoWindow: const InfoWindow(title: 'Your Location'),
+          infoWindow: const InfoWindow(title: 'A Sua Localização'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         );
-        _isLoadingLocation = false; // Hide loading indicator
+        _isLoadingLocation = false;
       });
 
-      // Animate map camera to current location if the map is already initialized.
       _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_currentLocation!, 15), // Zoom level 15
+        CameraUpdate.newLatLngZoom(_currentLocation!, 15),
       );
     } catch (e) {
-      _showSnackBar('Error getting location: $e', isError: true);
+      _showSnackBar('Erro ao obter localização: $e', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
     }
   }
 
-  /// Callback when the Google Map is created.
-  ///
-  /// Stores the controller and moves the camera to the current location if
-  /// it's already available (e.g., from a previous manual fetch).
+  /// Callback quando o Google Map é criado.
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
-    if (_currentLocation != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(_currentLocation!, 15),
-      );
+    
+    // Se já temos polígonos carregados, ajusta a câmera
+    if (_polygons.isNotEmpty) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _fitCameraToPolygons();
+      });
     }
   }
 
-  /// Displays a SnackBar message at the bottom of the screen.
-  ///
-  /// [message] The text content of the SnackBar.
-  /// [isError] If true, the SnackBar background will be red, otherwise green.
+  /// Exibe uma SnackBar com mensagem.
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -139,84 +365,118 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa'),
+        title: const Text('Mapa das Folhas de Obra'),
         backgroundColor: const Color(0xFF4F695B),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadParcels,
+            tooltip: 'Recarregar Parcelas',
+          ),
+        ],
       ),
-      body: _currentLocation == null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_isLoadingLocation)
-                    const CircularProgressIndicator()
-                  else
-                    const Icon(
-                      Icons.map_outlined,
-                      size: 80,
-                      color: Colors.grey,
+      body: Stack(
+        children: [
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _currentLocation ?? _defaultLocation,
+              zoom: 10,
+            ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
+            polygons: _polygons,
+            mapType: MapType.hybrid, // Mostra satélite + estradas para melhor contexto
+            onTap: (LatLng position) {
+              print('Mapa tocado em: ${position.latitude}, ${position.longitude}');
+            },
+          ),
+          if (_isLoadingParcels)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'A carregar parcelas...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
                     ),
-                  const SizedBox(height: 20),
-                  Text(
-                    _isLoadingLocation
-                        ? 'Fetching your current location...'
-                        : 'Tap the button below to get your current location on the map.',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16, color: Colors.black54),
+                  ],
+                ),
+              ),
+            ),
+          // Painel de informações
+          Positioned(
+            top: 16,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(height: 30),
-                  ElevatedButton.icon(
-                    onPressed: _isLoadingLocation ? null : _determinePosition,
-                    icon: _isLoadingLocation
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.location_on, color: Colors.white),
-                    label: Text(
-                      _isLoadingLocation ? 'Getting Location...' : 'Get My Location',
-                      style: const TextStyle(color: Colors.white, fontSize: 16),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF4F695B),
-                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Color(0xFF4F695B)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${_parcels.length} parcelas carregadas${_parcels.isNotEmpty ? ' (coordenadas convertidas do sistema português)' : ''}. Toque num polígono para mais informações.',
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ),
                 ],
               ),
-            )
-          : GoogleMap(
-              onMapCreated: _onMapCreated,
-              initialCameraPosition: CameraPosition(
-                target: _currentLocation!,
-                zoom: 15,
-              ),
-              myLocationEnabled: true,
-              myLocationButtonEnabled: false,
-              markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
-              // You can add other map features here like polygons, polylines etc.
             ),
-      floatingActionButton: _currentLocation != null && !_isLoadingLocation
-          ? FloatingActionButton(
-              onPressed: () {
-                if (_mapController != null && _currentLocation != null) {
-                  _mapController!.animateCamera(
-                    CameraUpdate.newLatLngZoom(_currentLocation!, 15),
-                  );
-                } else {
-                  _showSnackBar('Current location not available.');
-                }
-              },
-              backgroundColor: const Color(0xFF4F695B),
-              child: const Icon(Icons.my_location, color: Colors.white),
-            )
-          : null,
+          ),
+        ],
+      ),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "location",
+            onPressed: _isLoadingLocation ? null : _determinePosition,
+            backgroundColor: const Color(0xFF4F695B),
+            child: _isLoadingLocation
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.my_location, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: "center",
+            onPressed: () {
+              if (_mapController != null) {
+                LatLng target = _currentLocation ?? _defaultLocation;
+                _mapController!.animateCamera(
+                  CameraUpdate.newLatLngZoom(target, 12),
+                );
+              }
+            },
+            backgroundColor: const Color(0xFF4F695B),
+            child: const Icon(Icons.center_focus_strong, color: Colors.white),
+          ),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }

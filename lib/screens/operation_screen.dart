@@ -2,18 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/models/activity.dart';
-import 'package:trailblaze_app/models/operation.dart'; // Ensure this import is correct
-import 'package:trailblaze_app/models/occurrence.dart'; // Ensure this import is correct
+import 'package:trailblaze_app/models/operation.dart';
+import 'package:trailblaze_app/models/occurrence.dart';
 import 'package:trailblaze_app/utils/create_occurrence_request.dart';
 
 class OperationScreen extends StatefulWidget {
   final String username;
   final String jwtToken;
+  final List<String>? userRoles;
 
   const OperationScreen({
     super.key,
     required this.username,
     required this.jwtToken,
+    this.userRoles,
   });
 
   @override
@@ -318,6 +320,36 @@ class _OperationScreenState extends State<OperationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Check if user has PO role
+    bool hasPORole = widget.userRoles?.contains('PO') == true;
+    
+    if (!hasPORole) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Access Denied'),
+          backgroundColor: const Color(0xFF4F695B),
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.lock,
+                size: 80,
+                color: Colors.grey,
+              ),
+              SizedBox(height: 20),
+              Text(
+                'You need the "PO" role to access this screen.',
+                style: TextStyle(fontSize: 18, color: Colors.black54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Operator (PO) Dashboard'),
