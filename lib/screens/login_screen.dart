@@ -79,7 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Decode the token to get the roles directly
         final Map<String, dynamic> jwtPayload = _parseJwt(token);
+        print('JWT Payload: $jwtPayload'); // Debug print
+        
         final List<String> userRoles = (jwtPayload['roles'] as List<dynamic>?)?.cast<String>() ?? [];
+        print('Extracted roles: $userRoles'); // Debug print
 
         // Store token, username, and roles securely
         await _storage.write(key: 'jwtToken', value: token);
@@ -112,6 +115,28 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  /// Parse JWT token to extract payload
+  Map<String, dynamic> _parseJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        print('Invalid JWT format: expected 3 parts, got ${parts.length}');
+        return {};
+      }
+
+      final payload = parts[1];
+      // Add padding if needed for base64 decoding
+      var normalizedPayload = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalizedPayload));
+      print('Decoded JWT payload: $decoded'); // Debug print
+      
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    } catch (e) {
+      print('Error parsing JWT: $e');
+      return {};
     }
   }
 

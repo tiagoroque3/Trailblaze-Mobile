@@ -39,8 +39,27 @@ class _MainAppScreenState extends State<MainAppScreen> {
     _displayUsername = widget.username;
     _displayRoles = widget.roles;
 
-    if (widget.isLoggedIn && _displayRoles == null) {
-      _fetchUserRoles();
+    if (widget.isLoggedIn) {
+      if (_displayRoles == null) {
+        _loadRolesFromStorage();
+      }
+      _fetchUserRoles(); // Always fetch to ensure we have the latest roles
+    }
+  }
+
+  /// Load roles from secure storage as fallback
+  Future<void> _loadRolesFromStorage() async {
+    try {
+      final storedRoles = await _storage.read(key: 'userRoles');
+      if (storedRoles != null) {
+        final List<dynamic> rolesList = jsonDecode(storedRoles);
+        setState(() {
+          _displayRoles = rolesList.cast<String>();
+        });
+        print('Loaded roles from storage: $_displayRoles');
+      }
+    } catch (e) {
+      print('Error loading roles from storage: $e');
     }
   }
 
@@ -64,8 +83,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> userData = jsonDecode(response.body);
+        print('User data from backend: $userData'); // Debug print
+        
         setState(() {
           _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
+          print('Roles set in state: $_displayRoles'); // Debug print
+          
           if (_displayRoles == null || _displayRoles!.isEmpty) {
             print('User roles not found or empty in user details response.');
           }
@@ -297,6 +320,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Events (RU)'),
               onTap: () {
                 Navigator.pop(context);
+                print('Checking Events access - isLoggedIn: ${widget.isLoggedIn}, roles: $_displayRoles'); // Debug print
+                
                 if (widget.isLoggedIn && 
                     widget.username != null && 
                     widget.jwtToken != null &&
@@ -315,6 +340,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   if (!widget.isLoggedIn) {
                     _showGuestLoginDialog(context);
                   } else {
+                    print('Access denied - Current roles: $_displayRoles, Required: RU'); // Debug print
                     _showRoleRequiredDialog(context, 'RU');
                   }
                 }
