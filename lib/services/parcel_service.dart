@@ -294,52 +294,25 @@ class ParcelService {
   /// Converte coordenadas do sistema português (EPSG:3763 - ETRS89 / Portugal TM06) para WGS84
   /// Esta é uma conversão aproximada - para maior precisão, seria necessária uma biblioteca de projeção
   static List<double> _convertPortugueseCoordinatesToWGS84(double x, double y) {
-    // Verifica se as coordenadas já estão em formato WGS84 (lat/lng)
-    if (x >= -180 && x <= 180 && y >= -90 && y <= 90) {
-      // Coordenadas já estão em WGS84, mas podem estar invertidas
-      // Se x está na faixa de longitude e y na faixa de latitude, assume [lng, lat]
-      return [y, x]; // Retorna [lat, lng]
-    }
-    
-    // Se as coordenadas estão em valores muito grandes, assume sistema projetado português
-    if (x > 1000 || y > 1000) {
-      // Conversão aproximada do sistema EPSG:3763 (Portugal TM06) para WGS84
-      // Parâmetros aproximados para Portugal continental
-      
-      // Origem do sistema TM06
-      double falseEasting = 0.0;
-      double falseNorthing = 0.0;
-      double centralMeridian = -8.133108; // Meridiano central de Portugal
-      double latitudeOfOrigin = 39.66825833; // Latitude de origem
-      
-      // Conversão aproximada (simplificada)
-      // Esta é uma aproximação - para precisão total seria necessário usar proj4 ou similar
-      double deltaX = x - falseEasting;
-      double deltaY = y - falseNorthing;
-      
-      // Fatores de escala aproximados para Portugal
-      double scaleX = 1.0 / 111320.0; // metros por grau de longitude (aproximado)
-      double scaleY = 1.0 / 110540.0; // metros por grau de latitude (aproximado)
-      
-      double longitude = centralMeridian + (deltaX * scaleX);
-      double latitude = latitudeOfOrigin + (deltaY * scaleY);
-      
-      // Ajustes para Portugal continental
-      if (longitude < -10 || longitude > -6) {
-        longitude = math.max(-10, math.min(-6, longitude));
-      }
-      if (latitude < 36 || latitude > 42) {
-        latitude = math.max(36, math.min(42, latitude));
-      }
-      
-      print('Conversão de coordenadas: ($x, $y) -> ($latitude, $longitude)');
-      return [latitude, longitude];
-    }
-    
-    // Se não conseguir identificar o sistema, usa coordenadas de Lisboa
-    print('Sistema de coordenadas não identificado: ($x, $y), usando Lisboa como fallback');
-    return [38.7223, -9.1393];
-  }
+  // Define a projeção portuguesa EPSG:3763 (ETRS89/PT-TM06)
+  final portugueseProjection = Projection.add('EPSG:3763',
+      '+proj=tmerc +lat_0=39.66825833333333 +lon_0=-8.133108333333334 '
+      '+k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs');
+
+  // Define a projeção padrão WGS84 (EPSG:4326)
+  final wgs84Projection = Projection.WGS84;
+
+  // Ponto original no sistema português
+  var point = Point(x: x, y: y);
+
+  // Realiza a conversão
+  var wgs84Point = portugueseProjection.transform(wgs84Projection, point);
+
+  print('Conversão proj4: ($x, $y) -> (${wgs84Point.y}, ${wgs84Point.x})');
+
+  // Retorna [latitude, longitude]
+  return [wgs84Point.y, wgs84Point.x];
+}
 
 
   /// Gera uma cor baseada no ID da folha de obra

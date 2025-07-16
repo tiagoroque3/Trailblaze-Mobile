@@ -3,6 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/parcel.dart';
 import '../services/parcel_service.dart';
+import 'dart:convert';
 
 /// Representa o ecrã dedicado à exibição do mapa com polígonos das folhas de obra.
 /// Este ecrã é acessível a todos os utilizadores, independentemente do estado de login.
@@ -45,43 +46,84 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   /// Carrega as parcelas/folhas de obra do servidor ou dados de exemplo.
-  Future<void> _loadParcels() async {
+  /// Carrega as parcelas/folhas de obra do servidor ou dados de exemplo.
+Future<void> _loadParcels() async {
+  setState(() {
+    _isLoadingParcels = true;
+  });
+
+  // Lista de roles autorizados
+  const allowedRoles = [
+    'SMBO', 'SDVBO', 'SGVBO', 'RU', 'ADLU', 'PO', 'PRBO', 'SYSADMIN', 'SYSBO'
+  ];
+
+  // Extrai roles do JWT
+  List<String> userRoles = _extractRolesFromJwt(widget.jwtToken);
+
+  // Verifica se o utilizador tem pelo menos um role autorizado
+  bool hasAccess = userRoles.any((role) => allowedRoles.contains(role));
+
+  if (!hasAccess) {
     setState(() {
-      _isLoadingParcels = true;
+      _parcels = ParcelService.getMockParcels();
+      _createPolygons();
+      _isLoadingParcels = false;
     });
-
-    try {
-      // Tenta buscar parcelas das folhas de obra do servidor
-      List<Parcel> parcels = await ParcelService.fetchParcels(
-        jwtToken: widget.jwtToken,
-      );
-
-      // Se não conseguir dados do servidor, usa dados de exemplo
-      if (parcels.isEmpty) {
-        parcels = ParcelService.getMockParcels();
-        _showSnackBar('A usar dados de exemplo das parcelas');
-      } else {
-        _showSnackBar('${parcels.length} parcelas carregadas das folhas de obra');
-      }
-
-      setState(() {
-        _parcels = parcels;
-        _createPolygons();
-      });
-    } catch (e) {
-      print('Erro ao carregar parcelas: $e');
-      // Em caso de erro, usa dados de exemplo
-      setState(() {
-        _parcels = ParcelService.getMockParcels();
-        _createPolygons();
-      });
-      _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
-    } finally {
-      setState(() {
-        _isLoadingParcels = false;
-      });
-    }
+    _showSnackBar('Sem permissões suficientes para carregar detalhes das folhas de obra.', isError: true);
+    return;
   }
+
+  try {
+    // Tenta buscar parcelas das folhas de obra do servidor
+    List<Parcel> parcels = await ParcelService.fetchParcels(
+      jwtToken: widget.jwtToken,
+    );
+
+    // Usa dados de exemplo se não conseguir dados do servidor
+    if (parcels.isEmpty) {
+      parcels = ParcelService.getMockParcels();
+      _showSnackBar('A usar dados de exemplo das parcelas');
+    } else {
+      _showSnackBar('${parcels.length} parcelas carregadas das folhas de obra');
+    }
+
+    setState(() {
+      _parcels = parcels;
+      _createPolygons();
+    });
+  } catch (e) {
+    print('Erro ao carregar parcelas: $e');
+    // Em caso de erro, usa dados de exemplo
+    setState(() {
+      _parcels = ParcelService.getMockParcels();
+      _createPolygons();
+    });
+    _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
+  } finally {
+    setState(() {
+      _isLoadingParcels = false;
+    });
+  }
+}
+
+/// Função auxiliar para extrair roles do JWT
+List<String> _extractRolesFromJwt(String? jwtToken) {
+  if (jwtToken == null) return [];
+
+  final parts = jwtToken.split('.');
+  if (parts.length != 3) return [];
+
+  final payload = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))));
+
+  if (payload['roles'] is List) {
+    return List<String>.from(payload['roles']);
+  } else if (payload['role'] is String) {
+    return [payload['role']];
+  }
+
+  return [];
+}
+
 
   /// Cria os polígonos a partir das parcelas carregadas.
   void _createPolygons() {
