@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/screens/main_app_screen.dart';
-
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
 import 'package:trailblaze_app/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -27,27 +25,25 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>?> _fetchUserDetails(String username, String jwtToken) async {
-    final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/$username');
-
+  /// Parse JWT token to extract payload
+  Map<String, dynamic> _parseJwt(String token) {
     try {
-      final response = await http.get(
-        userDetailsUrl,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'Bearer $jwtToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print('Failed to load user details for roles: ${response.statusCode} - ${response.body}');
-        return null;
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        print('Invalid JWT format: expected 3 parts, got ${parts.length}');
+        return {};
       }
+
+      final payload = parts[1];
+      // Add padding if needed for base64 decoding
+      var normalizedPayload = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalizedPayload));
+      print('Decoded JWT payload: $decoded'); // Debug print
+      
+      return jsonDecode(decoded) as Map<String, dynamic>;
     } catch (e) {
-      print('Error fetching user details for roles: $e');
-      return null;
+      print('Error parsing JWT: $e');
+      return {};
     }
   }
 
@@ -118,28 +114,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Parse JWT token to extract payload
-  Map<String, dynamic> _parseJwt(String token) {
-    try {
-      final parts = token.split('.');
-      if (parts.length != 3) {
-        print('Invalid JWT format: expected 3 parts, got ${parts.length}');
-        return {};
-      }
-
-      final payload = parts[1];
-      // Add padding if needed for base64 decoding
-      var normalizedPayload = base64Url.normalize(payload);
-      final decoded = utf8.decode(base64Url.decode(normalizedPayload));
-      print('Decoded JWT payload: $decoded'); // Debug print
-      
-      return jsonDecode(decoded) as Map<String, dynamic>;
-    } catch (e) {
-      print('Error parsing JWT: $e');
-      return {};
-    }
-  }
-
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -162,7 +136,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // The rest of the UI build method remains the same...
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(

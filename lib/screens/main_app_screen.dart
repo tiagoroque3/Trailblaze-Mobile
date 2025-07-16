@@ -39,19 +39,27 @@ class _MainAppScreenState extends State<MainAppScreen> {
     _displayUsername = widget.username;
     _displayRoles = widget.roles;
 
-    if (widget.isLoggedIn) {
-      if (_displayRoles == null) {
-        _loadRolesFromStorage();
-      }
-      _fetchUserRoles(); // Always fetch to ensure we have the latest roles
+    // If the user is logged in but roles are not available (e.g., app restart),
+    // then try to load them from storage or fetch them from the server.
+    if (widget.isLoggedIn && (_displayRoles == null || _displayRoles!.isEmpty)) {
+      _loadAndFetchRoles();
     }
   }
+
+  /// Loads roles from storage and then fetches from the server to ensure data is fresh.
+  Future<void> _loadAndFetchRoles() async {
+    await _loadRolesFromStorage(); // Try to load from storage for a quick UI update
+    await _fetchUserRoles(); // Fetch from server to get the latest roles
+  }
+
 
   /// Load roles from secure storage as fallback
   Future<void> _loadRolesFromStorage() async {
     try {
       final storedRoles = await _storage.read(key: 'userRoles');
       if (storedRoles != null) {
+        // Check if the widget is still mounted before calling setState
+        if (!mounted) return;
         final List<dynamic> rolesList = jsonDecode(storedRoles);
         setState(() {
           _displayRoles = rolesList.cast<String>();
@@ -82,6 +90,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
       );
 
       if (response.statusCode == 200) {
+        // Check if the widget is still mounted before calling setState
+        if (!mounted) return;
         final Map<String, dynamic> userData = jsonDecode(response.body);
         print('User data from backend: $userData'); // Debug print
         
