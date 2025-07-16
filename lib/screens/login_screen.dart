@@ -77,17 +77,21 @@ class _LoginScreenState extends State<LoginScreen> {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         final String token = responseBody['token'];
 
-        final Map<String, dynamic>? userData = await _fetchUserDetails(username, token);
-        List<String>? userRoles = (userData?['roles'] as List<dynamic>?)?.cast<String>();
+        // Decode the token to get the roles directly
+        final Map<String, dynamic> jwtPayload = _parseJwt(token);
+        print('JWT Payload: $jwtPayload'); // Debug print
+        
+        final List<String> userRoles = (jwtPayload['roles'] as List<dynamic>?)?.cast<String>() ?? [];
+        print('Extracted roles: $userRoles'); // Debug print
 
+        // Store token, username, and roles securely
         await _storage.write(key: 'jwtToken', value: token);
         await _storage.write(key: 'username', value: username);
-        if (userRoles != null) {
-          await _storage.write(key: 'userRoles', value: jsonEncode(userRoles));
-        }
+        await _storage.write(key: 'userRoles', value: jsonEncode(userRoles));
 
         print('Login successful! Token: $token, Roles: $userRoles');
 
+        // Navigate to the main app screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -114,6 +118,28 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Parse JWT token to extract payload
+  Map<String, dynamic> _parseJwt(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        print('Invalid JWT format: expected 3 parts, got ${parts.length}');
+        return {};
+      }
+
+      final payload = parts[1];
+      // Add padding if needed for base64 decoding
+      var normalizedPayload = base64Url.normalize(payload);
+      final decoded = utf8.decode(base64Url.decode(normalizedPayload));
+      print('Decoded JWT payload: $decoded'); // Debug print
+      
+      return jsonDecode(decoded) as Map<String, dynamic>;
+    } catch (e) {
+      print('Error parsing JWT: $e');
+      return {};
+    }
+  }
+
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
@@ -136,6 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The rest of the UI build method remains the same...
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(

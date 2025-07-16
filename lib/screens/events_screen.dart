@@ -177,6 +177,7 @@ class _EventsScreenState extends State<EventsScreen> {
     // Check if user has RU role
     bool hasRURole = widget.userRoles?.contains('RU') == true;
     
+
     if (!hasRURole) {
       return Scaffold(
         appBar: AppBar(
