@@ -6,12 +6,13 @@ import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
 import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
+import 'package:trailblaze_app/screens/events_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
   final bool isLoggedIn;
   final String? username;
   final String? jwtToken;
-  final List<String>? roles; // Updated to a list of roles
+  final List<String>? roles; // List of user roles
 
   const MainAppScreen({
     super.key,
@@ -30,7 +31,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   final _storage = const FlutterSecureStorage();
 
   String? _displayUsername;
-  List<String>? _displayRoles; // State variable to hold the roles
+  List<String>? _displayRoles; // State variable to hold the list of roles
 
   @override
   void initState() {
@@ -46,7 +47,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   /// Fetches the user's roles from the backend.
   Future<void> _fetchUserRoles() async {
     if (widget.username == null || widget.jwtToken == null) {
-      print('Cannot fetch roles: username or JWT token is null.');
+      print('Cannot fetch user roles: username or JWT token is null.');
       return;
     }
 
@@ -65,8 +66,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
         final Map<String, dynamic> userData = jsonDecode(response.body);
         setState(() {
           _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
-          if (_displayRoles == null) {
-            print('Roles not found in user details response.');
+          if (_displayRoles == null || _displayRoles!.isEmpty) {
+            print('User roles not found or empty in user details response.');
           }
         });
       } else {
@@ -102,7 +103,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     await _storage.delete(key: 'jwtToken');
     await _storage.delete(key: 'username');
-    await _storage.delete(key: 'userRoles'); // Clear roles from secure storage
+    await _storage.delete(key: 'userRoles'); // Clear user roles from secure storage
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -134,6 +135,26 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 Navigator.of(context).pop();
               },
               child: const Text('Cancel'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRoleRequiredDialog(BuildContext context, String requiredRole) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Insufficient Permissions'),
+          content: Text('You need the "$requiredRole" role to access this feature.'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
             ),
           ],
         );
@@ -232,19 +253,26 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Execution Sheets'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
+                if (widget.isLoggedIn && 
+                    widget.username != null && 
+                    widget.jwtToken != null &&
+                    (_displayRoles?.contains('PO') == true)) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => ExecutionSheetsScreen(
                         username: widget.username!,
-                        jwtToken: widget.jwtToken!, 
-                        roles: widget.roles ?? [],
+                        jwtToken: widget.jwtToken!,
+                        userRoles: _displayRoles,
                       ),
                     ),
                   );
                 } else {
-                  _showGuestLoginDialog(context);
+                  if (!widget.isLoggedIn) {
+                    _showGuestLoginDialog(context);
+                  } else {
+                    _showRoleRequiredDialog(context, 'PO');
+                  }
                 }
               },
             ),
@@ -262,6 +290,34 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     ),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.event),
+              title: const Text('Events (RU)'),
+              onTap: () {
+                Navigator.pop(context);
+                if (widget.isLoggedIn && 
+                    widget.username != null && 
+                    widget.jwtToken != null &&
+                    (_displayRoles?.contains('RU') == true)) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EventsScreen(
+                        username: widget.username!,
+                        jwtToken: widget.jwtToken!,
+                        userRoles: _displayRoles,
+                      ),
+                    ),
+                  );
+                } else {
+                  if (!widget.isLoggedIn) {
+                    _showGuestLoginDialog(context);
+                  } else {
+                    _showRoleRequiredDialog(context, 'RU');
+                  }
+                }
               },
             ),
           ],
@@ -284,7 +340,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
             const SizedBox(height: 10),
             Text(
               widget.isLoggedIn
-                  ? 'You are logged in as ${_displayUsername ?? 'User'}.'
+                  ? 'You are logged in as ${_displayUsername ?? 'User'}.\nRoles: ${_displayRoles?.join(', ') ?? 'No roles assigned'}'
                   : 'You are in guest mode. Some features may be limited.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,

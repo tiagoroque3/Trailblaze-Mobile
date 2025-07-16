@@ -376,15 +376,15 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    List<String> roles = (_userData?['roles'] as List<dynamic>?)?.cast<String>() ?? [];
-    bool isRuRole = roles.contains('RU');
+    List<String> userRoles = (_userData?['roles'] as List<dynamic>?)?.cast<String>() ?? [];
+    bool hasRuRole = userRoles.contains('RU');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Details'),
         backgroundColor: const Color(0xFF4F695B),
         actions: [
-          if (isRuRole)
+          if (hasRuRole)
             IconButton(
               icon: Icon(
                 _userData?['profile'] == 'PUBLIC' ? Icons.lock_open : Icons.lock,
@@ -421,7 +421,7 @@ class _UserDetailsScreenState extends State<UserDetailsScreen> {
                           _buildUserInfoRow('Date of Birth', _userData!['d_nasc']),
                           _buildUserInfoRow('State', _userData!['state']),
                           _buildUserInfoRow('Profile', _userData!['profile']),
-                          _buildUserInfoRow('Roles', roles.join(', ')),
+                          _buildUserInfoRow('Roles', userRoles.isNotEmpty ? userRoles.join(', ') : 'No roles assigned'),
                           _buildUserInfoRow('Registration Type', _userData!['registrationType']),
                           _buildUserInfoRow('Creator', _userData!['creator']),
 

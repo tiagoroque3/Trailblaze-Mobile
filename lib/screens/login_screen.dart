@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:trailblaze_app/screens/main_app_screen.dart';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
 import 'package:trailblaze_app/screens/register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,19 +27,28 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Decodes the JWT token to extract the payload, including user roles.
-  Map<String, dynamic> _parseJwt(String token) {
-    final parts = token.split('.');
-    if (parts.length != 3) {
-      throw Exception('Invalid token');
+  Future<Map<String, dynamic>?> _fetchUserDetails(String username, String jwtToken) async {
+    final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/$username');
+
+    try {
+      final response = await http.get(
+        userDetailsUrl,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Failed to load user details for roles: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching user details for roles: $e');
+      return null;
     }
-
-    final payload = parts[1];
-    final normalized = base64Url.normalize(payload);
-    final resp = utf8.decode(base64Url.decode(normalized));
-
-    final payloadMap = json.decode(resp);
-    return payloadMap;
   }
 
   Future<void> _loginButtonPressed() async {
