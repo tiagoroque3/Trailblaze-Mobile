@@ -6,6 +6,7 @@ import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
 import 'package:trailblaze_app/screens/operation_screen.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
+import 'package:trailblaze_app/screens/events_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
   final bool isLoggedIn;
@@ -289,6 +290,34 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     ),
                   ),
                 );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.event),
+              title: const Text('Events (RU)'),
+              onTap: () {
+                Navigator.pop(context);
+                if (widget.isLoggedIn && 
+                    widget.username != null && 
+                    widget.jwtToken != null &&
+                    (_displayRoles?.contains('RU') == true)) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => EventsScreen(
+                        username: widget.username!,
+                        jwtToken: widget.jwtToken!,
+                        userRoles: _displayRoles,
+                      ),
+                    ),
+                  );
+                } else {
+                  if (!widget.isLoggedIn) {
+                    _showGuestLoginDialog(context);
+                  } else {
+                    _showRoleRequiredDialog(context, 'RU');
+                  }
+                }
               },
             ),
           ],
