@@ -1,9 +1,14 @@
+import 'package:trailblaze_app/models/activity.dart';
+import 'package:trailblaze_app/models/operation_execution.dart';
+
 class ParcelOperationExecution {
   final String id;
   final String operationExecutionId;
   final String parcelId;
   final String status;
   final String? assignedOperatorId;
+  OperationExecution? operationExecution;
+  List<Activity> activities;
 
   ParcelOperationExecution({
     required this.id,
@@ -11,10 +16,11 @@ class ParcelOperationExecution {
     required this.parcelId,
     required this.status,
     this.assignedOperatorId,
+    this.operationExecution,
+    this.activities = const [],
   });
 
   factory ParcelOperationExecution.fromJson(Map<String, dynamic> json) {
-     // The 'json' passed here is the 'parcelExecution' object from the response
     return ParcelOperationExecution(
       id: json['id'] ?? '',
       operationExecutionId: json['operationExecutionId'] ?? '',

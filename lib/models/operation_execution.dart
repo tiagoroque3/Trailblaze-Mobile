@@ -1,3 +1,5 @@
+import 'package:trailblaze_app/models/parcel_operation_execution.dart';
+
 class OperationExecution {
   final String id;
   final String name;
@@ -6,6 +8,7 @@ class OperationExecution {
   final double percentExecuted;
   final double expectedTotalArea;
   final double totalExecutedArea;
+  List<ParcelOperationExecution> parcels;
 
   OperationExecution({
     required this.id,
@@ -15,21 +18,20 @@ class OperationExecution {
     required this.percentExecuted,
     required this.expectedTotalArea,
     required this.totalExecutedArea,
+    this.parcels = const [],
   });
 
   factory OperationExecution.fromJson(Map<String, dynamic> json) {
-    // The 'json' passed here is the 'operationExecution' object from the response
     return OperationExecution(
       id: json['id'] ?? '',
-      // Assuming 'operationId' from the backend corresponds to 'name' or 'id' for display
-      name: 'Operation ${json['operationId'] ?? ''}', 
+      name: 'Operation ${json['operationId'] ?? ''}',
       executionSheetId: json['executionSheetId'] ?? '',
-      // The backend doesn't seem to have a 'state' field in OperationExecution
-      // I'll keep it for now, but you might need to adjust based on your actual JSON
-      state: json['state'] ?? 'PENDING', 
+      state: json['state'] ?? 'PENDING',
       percentExecuted: (json['percentExecuted'] as num?)?.toDouble() ?? 0.0,
-      expectedTotalArea: (json['expectedTotalArea'] as num?)?.toDouble() ?? 0.0,
-      totalExecutedArea: (json['totalExecutedArea'] as num?)?.toDouble() ?? 0.0,
+      expectedTotalArea:
+          (json['expectedTotalArea'] as num?)?.toDouble() ?? 0.0,
+      totalExecutedArea:
+          (json['totalExecutedArea'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
