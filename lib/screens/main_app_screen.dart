@@ -288,8 +288,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 Navigator.pop(context);
                 if (widget.isLoggedIn && 
                     widget.username != null && 
-                    widget.jwtToken != null &&
-                    (_displayRoles?.contains('PO') == true)) {
+                    widget.jwtToken != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
