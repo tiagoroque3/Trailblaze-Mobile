@@ -5,8 +5,8 @@ import '../models/parcel.dart';
 import '../services/parcel_service.dart';
 import 'dart:convert';
 
-/// Representa o ecrã dedicado à exibição do mapa com polígonos das folhas de obra.
-/// Este ecrã é acessível a todos os utilizadores, independentemente do estado de login.
+/// Represents the screen dedicated to displaying the map with worksheet polygons.
+/// This screen is accessible to all users, regardless of login status.
 class MapScreen extends StatefulWidget {
   final String? username;
   final String? jwtToken;
@@ -22,27 +22,27 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  // Controlador para a instância do Google Map.
+  // Controller for the Google Map instance.
   GoogleMapController? _mapController;
-  // Armazena a localização atual do utilizador.
+  // Stores the user's current location.
   LatLng? _currentLocation;
-  // Marcador para exibir a localização atual do utilizador no mapa.
+  // Marker to display the user's current location on the map.
   Marker? _userLocationMarker;
-  // Estado para gerir o indicador de carregamento durante a busca de localização.
+  // State to manage the loading indicator during location search.
   bool _isLoadingLocation = false;
-  // Estado para gerir o carregamento das parcelas.
+  // State to manage loading of parcels.
   bool _isLoadingParcels = false;
-  // Lista de parcelas/folhas de obra.
+  // List of parcels/worksheets.
   List<Parcel> _parcels = [];
-  // Lista de worksheets reais do backend
+  // List of actual worksheets from backend
   List<Map<String, dynamic>> _worksheets = [];
-  // Conjunto de polígonos para exibir no mapa.
+  // Set of polygons to display on the map.
   Set<Polygon> _polygons = {};
-  // Localização padrão (Lisboa, Portugal)
+  // Default location (Lisbon, Portugal)
   static const LatLng _defaultLocation = LatLng(38.7223, -9.1393);
-  // Tipo de mapa atual
+  // Current map type
   MapType _currentMapType = MapType.normal;
-  // Folha de obra selecionada
+  // Selected worksheet
   int? _selectedWorksheetId;
 
   @override
@@ -51,21 +51,21 @@ class _MapScreenState extends State<MapScreen> {
     _loadParcels();
   }
 
-  /// Carrega as parcelas/folhas de obra do servidor ou dados de exemplo.
+  /// Loads parcels/worksheets from server or example data.
   Future<void> _loadParcels() async {
     setState(() {
       _isLoadingParcels = true;
     });
 
-    // Lista de roles autorizados
+    // List of authorized roles
     const allowedRoles = [
       'SMBO', 'SDVBO', 'SGVBO', 'RU', 'ADLU', 'PO', 'PRBO', 'SYSADMIN', 'SYSBO'
     ];
 
-    // Extrai roles do JWT
+    // Extract roles from JWT
     List<String> userRoles = _extractRolesFromJwt(widget.jwtToken);
 
-    // Verifica se o utilizador tem pelo menos um role autorizado
+    // Check if user has at least one authorized role
     bool hasAccess = userRoles.any((role) => allowedRoles.contains(role));
 
     if (!hasAccess) {
@@ -78,12 +78,12 @@ class _MapScreenState extends State<MapScreen> {
       if (_worksheets.isNotEmpty) {
         _selectedWorksheetId = _worksheets.first['id'];
       }
-      _showSnackBar('Sem permissões suficientes para carregar detalhes das folhas de obra.', isError: true);
+      _showSnackBar('Insufficient permissions to load worksheet details.', isError: true);
       return;
     }
 
     try {
-      // Busca worksheets e parcelas do servidor
+      // Fetch worksheets and parcels from server
       final result = await ParcelService.fetchWorksheetsWithParcels(
         jwtToken: widget.jwtToken,
       );
@@ -91,13 +91,11 @@ class _MapScreenState extends State<MapScreen> {
       List<Map<String, dynamic>> worksheets = List<Map<String, dynamic>>.from(result['worksheets'] ?? []);
       List<Parcel> parcels = List<Parcel>.from(result['parcels'] ?? []);
 
-      // Usa dados de exemplo se não conseguir dados do servidor
+      // Use example data if can't get data from server
       if (worksheets.isEmpty) {
         worksheets = ParcelService.getMockWorksheets();
         parcels = ParcelService.getMockParcels();
-        _showSnackBar('A usar dados de exemplo das worksheets');
-      } else {
-        _showSnackBar('${worksheets.length} worksheets e ${parcels.length} parcelas carregadas');
+        _showSnackBar('Using example worksheet data');
       }
 
       setState(() {
@@ -106,13 +104,13 @@ class _MapScreenState extends State<MapScreen> {
         _createPolygons();
       });
       
-      // Define a primeira worksheet como selecionada
+      // Set first worksheet as selected
       if (_worksheets.isNotEmpty) {
         _selectedWorksheetId = _worksheets.first['id'];
       }
     } catch (e) {
-      print('Erro ao carregar worksheets: $e');
-      // Em caso de erro, usa dados de exemplo
+      print('Error loading worksheets: $e');
+      // In case of error, use example data
       setState(() {
         _worksheets = ParcelService.getMockWorksheets();
         _parcels = ParcelService.getMockParcels();
@@ -121,7 +119,7 @@ class _MapScreenState extends State<MapScreen> {
       if (_worksheets.isNotEmpty) {
         _selectedWorksheetId = _worksheets.first['id'];
       }
-      _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
+      _showSnackBar('Error loading server data. Using example data.', isError: true);
     } finally {
       setState(() {
         _isLoadingParcels = false;
@@ -129,7 +127,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Formata data ISO para exibição
+  /// Formats ISO date for display
   String _formatDate(String? isoDate) {
     if (isoDate == null) return 'N/A';
     try {
@@ -140,7 +138,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Função auxiliar para extrair roles do JWT
+  /// Helper function to extract roles from JWT
   List<String> _extractRolesFromJwt(String? jwtToken) {
     if (jwtToken == null) return [];
 
@@ -158,16 +156,16 @@ class _MapScreenState extends State<MapScreen> {
     return [];
   }
 
-  /// Cria os polígonos a partir das parcelas carregadas.
+  /// Creates polygons from loaded parcels.
   void _createPolygons() {
-    print('\n=== CRIANDO POLÍGONOS ===');
-    print('Total de parcelas para processar: ${_parcels.length}');
+    print('\n=== CREATING POLYGONS ===');
+    print('Total parcels to process: ${_parcels.length}');
     
     Set<Polygon> polygons = {};
     int polygonsCreated = 0;
     int polygonsSkipped = 0;
 
-    // Filtra parcelas baseado na worksheet selecionada
+    // Filter parcels based on selected worksheet
     List<Parcel> filteredParcels = _parcels;
     if (_selectedWorksheetId != null) {
       var selectedWorksheetData = _worksheets.firstWhere(
@@ -181,37 +179,37 @@ class _MapScreenState extends State<MapScreen> {
 
     for (int i = 0; i < filteredParcels.length; i++) {
       final parcel = filteredParcels[i];
-      print('\nProcessando parcela ${i + 1}/${filteredParcels.length}: ${parcel.id}');
+      print('\nProcessing parcel ${i + 1}/${filteredParcels.length}: ${parcel.id}');
       
-      // Validação das coordenadas antes de criar o polígono
+      // Validate coordinates before creating polygon
       if (parcel.coordinates.length < 3) {
-        print('⚠️ Parcela ${parcel.id} tem apenas ${parcel.coordinates.length} coordenadas (mínimo 3), ignorando');
+        print('⚠️ Parcel ${parcel.id} has only ${parcel.coordinates.length} coordinates (minimum 3), ignoring');
         polygonsSkipped++;
         continue;
       }
       
-      // Converte as coordenadas para LatLng
+      // Convert coordinates to LatLng
       List<LatLng> polygonPoints = parcel.coordinates
           .map((coord) {
             double lat = coord[0];
             double lng = coord[1];
             
-            // Validação adicional
+            // Additional validation
             if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-              print('⚠️ Coordenada inválida ignorada: [$lat, $lng] na parcela ${parcel.id}');
-              return LatLng(38.7223, -9.1393); // Lisboa como fallback
+              print('⚠️ Invalid coordinate ignored: [$lat, $lng] in parcel ${parcel.id}');
+              return LatLng(38.7223, -9.1393); // Lisbon as fallback
             }
             
             return LatLng(lat, lng);
           })
           .toList();
       
-      // Define cores alternadas se não especificada
+      // Define alternating colors if not specified
       Color polygonColor;
       if (parcel.color != null) {
         polygonColor = _hexToColor(parcel.color!);
       } else {
-        // Cores alternadas
+        // Alternating colors
         List<Color> colors = [
           Colors.green.withOpacity(0.4),
           Colors.blue.withOpacity(0.4),
@@ -235,29 +233,29 @@ class _MapScreenState extends State<MapScreen> {
       );
 
       polygonsCreated++;
-      print('✓ Polígono ${parcel.id} adicionado ao mapa');
+      print('✓ Polygon ${parcel.id} added to map');
     }
 
-    print('\n=== RESUMO DA CRIAÇÃO DE POLÍGONOS ===');
-    print('Polígonos criados: $polygonsCreated');
-    print('Polígonos ignorados: $polygonsSkipped');
-    print('Total no mapa: ${polygons.length}');
+    print('\n=== POLYGON CREATION SUMMARY ===');
+    print('Polygons created: $polygonsCreated');
+    print('Polygons ignored: $polygonsSkipped');
+    print('Total on map: ${polygons.length}');
     print('=====================================');
 
     setState(() {
       _polygons = polygons;
     });
     
-    // Se temos polígonos, ajusta a câmera para mostrar todos
+    // If we have polygons, adjust camera to show all
     if (polygons.isNotEmpty && _mapController != null) {
-      print('Ajustando câmera para mostrar todos os polígonos...');
+      print('Adjusting camera to show all polygons...');
       _fitCameraToPolygons();
     } else if (polygons.isEmpty) {
-      print('⚠️ Nenhum polígono foi criado para exibir no mapa!');
+      print('⚠️ No polygons were created to display on map!');
     }
   }
 
-  /// Converte uma string hexadecimal para Color.
+  /// Converts a hexadecimal string to Color.
   Color _hexToColor(String hexString) {
     final buffer = StringBuffer();
     if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
@@ -265,7 +263,7 @@ class _MapScreenState extends State<MapScreen> {
     return Color(int.parse(buffer.toString(), radix: 16)).withOpacity(0.4);
   }
 
-  /// Callback quando um polígono é tocado.
+  /// Callback when a polygon is tapped.
   void _onPolygonTapped(Parcel parcel) {
     showDialog(
       context: context,
@@ -278,15 +276,15 @@ class _MapScreenState extends State<MapScreen> {
             children: [
               Text('ID: ${parcel.id}'),
               const SizedBox(height: 8),
-              Text('Descrição: ${parcel.description}'),
+              Text('Description: ${parcel.description}'),
               const SizedBox(height: 8),
-              Text('Coordenadas: ${parcel.coordinates.length} pontos'),
+              Text('Coordinates: ${parcel.coordinates.length} points'),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Fechar'),
+              child: const Text('Close'),
             ),
             if (widget.jwtToken != null)
               TextButton(
@@ -294,7 +292,7 @@ class _MapScreenState extends State<MapScreen> {
                   Navigator.of(context).pop();
                   _centerMapOnParcel(parcel);
                 },
-                child: const Text('Centrar no Mapa'),
+                child: const Text('Center on Map'),
               ),
           ],
         );
@@ -302,16 +300,16 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Centra o mapa numa parcela específica.
+  /// Centers the map on a specific parcel.
   void _centerMapOnParcel(Parcel parcel) {
     if (_mapController != null && parcel.coordinates.isNotEmpty) {
-      // Calcula o centro do polígono
+      // Calculate polygon center
       double avgLat = parcel.coordinates.map((coord) => coord[0]).reduce((a, b) => a + b) / parcel.coordinates.length;
       double avgLng = parcel.coordinates.map((coord) => coord[1]).reduce((a, b) => a + b) / parcel.coordinates.length;
       
       LatLng center = LatLng(avgLat, avgLng);
       
-      print('Centrando mapa em: $avgLat, $avgLng');
+      print('Centering map at: $avgLat, $avgLng');
       
       _mapController!.animateCamera(
         CameraUpdate.newLatLngZoom(center, 16),
@@ -319,7 +317,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
   
-  /// Ajusta a câmera para mostrar todos os polígonos
+  /// Adjusts camera to show all polygons
   void _fitCameraToPolygons() {
     List<Parcel> parcelsToShow = _parcels;
     if (_selectedWorksheetId != null) {
@@ -334,7 +332,7 @@ class _MapScreenState extends State<MapScreen> {
 
     if (parcelsToShow.isEmpty || _mapController == null) return;
     
-    // Calcula os bounds de todos os polígonos
+    // Calculate bounds of all polygons
     double minLat = double.infinity;
     double maxLat = -double.infinity;
     double minLng = double.infinity;
@@ -347,7 +345,7 @@ class _MapScreenState extends State<MapScreen> {
         double lat = coord[0];
         double lng = coord[1];
         
-        // Só considera coordenadas válidas para o cálculo dos bounds
+        // Only consider valid coordinates for bounds calculation
         if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           validCoordinatesCount++;
           
@@ -359,7 +357,7 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
     
-    // Se encontrou bounds válidos, ajusta a câmera
+    // If found valid bounds, adjust camera
     if (validCoordinatesCount > 0 && 
         minLat != double.infinity && maxLat != -double.infinity &&
         minLng != double.infinity && maxLng != -double.infinity) {
@@ -370,12 +368,12 @@ class _MapScreenState extends State<MapScreen> {
       );
       
       _mapController!.animateCamera(
-        CameraUpdate.newLatLngBounds(bounds, 100.0), // 100px de padding
+        CameraUpdate.newLatLngBounds(bounds, 100.0), // 100px padding
       );
     }
   }
 
-  /// Determina a posição atual do dispositivo.
+  /// Determines the current position of the device.
   Future<void> _determinePosition() async {
     setState(() {
       _isLoadingLocation = true;
@@ -386,7 +384,7 @@ class _MapScreenState extends State<MapScreen> {
 
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      _showSnackBar('Os serviços de localização estão desativados. Por favor, ative-os.', isError: true);
+      _showSnackBar('Location services are disabled. Please enable them.', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
@@ -397,7 +395,7 @@ class _MapScreenState extends State<MapScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        _showSnackBar('Permissões de localização negadas.', isError: true);
+        _showSnackBar('Location permissions denied.', isError: true);
         setState(() {
           _isLoadingLocation = false;
         });
@@ -406,7 +404,7 @@ class _MapScreenState extends State<MapScreen> {
     }
 
     if (permission == LocationPermission.deniedForever) {
-      _showSnackBar('Permissões de localização permanentemente negadas. Por favor, ative nas definições da aplicação.', isError: true);
+      _showSnackBar('Location permissions permanently denied. Please enable in app settings.', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
@@ -422,7 +420,7 @@ class _MapScreenState extends State<MapScreen> {
         _userLocationMarker = Marker(
           markerId: const MarkerId('userLocation'),
           position: _currentLocation!,
-          infoWindow: const InfoWindow(title: 'A Sua Localização'),
+          infoWindow: const InfoWindow(title: 'Your Location'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
         );
         _isLoadingLocation = false;
@@ -432,18 +430,18 @@ class _MapScreenState extends State<MapScreen> {
         CameraUpdate.newLatLngZoom(_currentLocation!, 15),
       );
     } catch (e) {
-      _showSnackBar('Erro ao obter localização: $e', isError: true);
+      _showSnackBar('Error getting location: $e', isError: true);
       setState(() {
         _isLoadingLocation = false;
       });
     }
   }
 
-  /// Callback quando o Google Map é criado.
+  /// Callback when Google Map is created.
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     
-    // Se já temos polígonos carregados, ajusta a câmera
+    // If we already have loaded polygons, adjust camera
     if (_polygons.isNotEmpty) {
       Future.delayed(const Duration(milliseconds: 500), () {
         _fitCameraToPolygons();
@@ -451,7 +449,7 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Exibe uma SnackBar com mensagem.
+  /// Shows a SnackBar with message.
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -461,7 +459,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Constrói o painel lateral com as worksheets
+  /// Builds the side panel with worksheets
   Widget _buildWorksheetPanel() {
     return Container(
       width: 350,
@@ -477,11 +475,11 @@ class _MapScreenState extends State<MapScreen> {
       ),
       child: Column(
         children: [
-          // Header do painel
+          // Panel header
           Container(
             padding: const EdgeInsets.all(20),
             decoration: const BoxDecoration(
-              color: Color(0xFFF5F5DC), // Cor bege similar à imagem
+              color: Color(0xFFF5F5DC), // Beige color similar to image
               border: Border(
                 bottom: BorderSide(color: Colors.grey, width: 0.5),
               ),
@@ -498,7 +496,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Dropdown para selecionar worksheet
+                // Dropdown to select worksheet
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -520,7 +518,7 @@ class _MapScreenState extends State<MapScreen> {
                       onChanged: (String? newValue) {
                         setState(() {
                           _selectedWorksheetId = newValue != null ? int.tryParse(newValue) : null;
-                          _createPolygons(); // Recria polígonos para a nova seleção
+                          _createPolygons(); // Recreate polygons for new selection
                         });
                       },
                     ),
@@ -529,12 +527,12 @@ class _MapScreenState extends State<MapScreen> {
               ],
             ),
           ),
-          // Detalhes da worksheet selecionada
+          // Selected worksheet details
           Expanded(
             child: _selectedWorksheetId != null
                 ? _buildWorksheetDetails()
                 : const Center(
-                    child: Text('Selecione uma worksheet'),
+                    child: Text('Select a worksheet'),
                   ),
           ),
         ],
@@ -542,7 +540,7 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Constrói os detalhes da worksheet selecionada
+  /// Builds the details of the selected worksheet
   Widget _buildWorksheetDetails() {
     var selectedWorksheetData = _worksheets.firstWhere(
       (w) => w['id'] == _selectedWorksheetId,
@@ -550,7 +548,7 @@ class _MapScreenState extends State<MapScreen> {
     );
 
     if (selectedWorksheetData.isEmpty) {
-      return const Center(child: Text('Worksheet não encontrada'));
+      return const Center(child: Text('Worksheet not found'));
     }
 
     return Padding(
@@ -567,55 +565,11 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildDetailRow('POSA:', selectedWorksheetData['posa']?['description'] ?? 'N/A'),
-          const SizedBox(height: 8),
           _buildDetailRow('POSP:', selectedWorksheetData['posp']?['description'] ?? 'N/A'),
           const SizedBox(height: 8),
-          _buildDetailRow('Início:', _formatDate(selectedWorksheetData['startingDate'])),
+          _buildDetailRow('Start Date:', _formatDate(selectedWorksheetData['startingDate'])),
           const SizedBox(height: 8),
-          _buildDetailRow('Fim:', _formatDate(selectedWorksheetData['finishingDate'])),
-          const SizedBox(height: 8),
-          _buildDetailRow('Emissão:', _formatDate(selectedWorksheetData['issueDate'])),
-          const SizedBox(height: 8),
-          _buildDetailRow('Adjudicação:', _formatDate(selectedWorksheetData['awardDate'])),
-          const SizedBox(height: 20),
-          Text(
-            'Parcelas (${(selectedWorksheetData['parcels'] as List).length})',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: ListView.builder(
-              itemCount: (selectedWorksheetData['parcels'] as List).length,
-              itemBuilder: (context, index) {
-                Parcel parcel = (selectedWorksheetData['parcels'] as List)[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(
-                      parcel.name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                    ),
-                    subtitle: Text(
-                      parcel.description,
-                      style: const TextStyle(fontSize: 12),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Icon(
-                      Icons.location_on,
-                      color: _hexToColor(parcel.color ?? '#4CAF50'),
-                    ),
-                    onTap: () => _centerMapOnParcel(parcel),
-                  ),
-                );
-              },
-            ),
-          ),
+          _buildDetailRow('End Date:', _formatDate(selectedWorksheetData['finishingDate'])),
         ],
       ),
     );
@@ -626,7 +580,7 @@ class _MapScreenState extends State<MapScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 60,
+          width: 80,
           child: Text(
             label,
             style: const TextStyle(
@@ -649,19 +603,19 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa das Folhas de Obra'),
+        title: const Text('Worksheet Map'),
         backgroundColor: const Color(0xFF4F695B),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadParcels,
-            tooltip: 'Recarregar Parcelas',
+            tooltip: 'Reload Worksheets',
           ),
         ],
       ),
       body: Row(
         children: [
-          // Mapa principal
+          // Main map
           Expanded(
             child: Stack(
               children: [
@@ -677,10 +631,10 @@ class _MapScreenState extends State<MapScreen> {
                   polygons: _polygons,
                   mapType: _currentMapType,
                   onTap: (LatLng position) {
-                    print('Mapa tocado em: ${position.latitude}, ${position.longitude}');
+                    print('Map tapped at: ${position.latitude}, ${position.longitude}');
                   },
                 ),
-                // Controles de tipo de mapa (similar à versão web)
+                // Map type controls (similar to web version)
                 Positioned(
                   top: 16,
                   left: 16,
@@ -699,18 +653,18 @@ class _MapScreenState extends State<MapScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildMapTypeButton('Mapa', MapType.normal),
+                        _buildMapTypeButton('Map', MapType.normal),
                         Container(
                           width: 1,
                           height: 30,
                           color: Colors.grey.shade300,
                         ),
-                        _buildMapTypeButton('Satélite', MapType.satellite),
+                        _buildMapTypeButton('Satellite', MapType.satellite),
                       ],
                     ),
                   ),
                 ),
-                // Indicador de carregamento
+                // Loading indicator
                 if (_isLoadingParcels)
                   Container(
                     color: Colors.black.withOpacity(0.3),
@@ -721,14 +675,14 @@ class _MapScreenState extends State<MapScreen> {
                           CircularProgressIndicator(color: Colors.white),
                           SizedBox(height: 16),
                           Text(
-                            'A carregar parcelas...',
+                            'Loading...',
                             style: TextStyle(color: Colors.white, fontSize: 16),
                           ),
                         ],
                       ),
                     ),
                   ),
-                // Botões de ação (canto inferior direito)
+                // Action buttons (bottom right corner)
                 Positioned(
                   bottom: 20,
                   right: 20,
@@ -767,7 +721,7 @@ class _MapScreenState extends State<MapScreen> {
               ],
             ),
           ),
-          // Painel lateral das worksheets
+          // Worksheet side panel
           _buildWorksheetPanel(),
         ],
       ),
