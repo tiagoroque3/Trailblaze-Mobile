@@ -4,7 +4,8 @@ class ExecutionSheet {
   final String state;
   final String associatedWorkSheetId;
   final String associatedUser;
-  final double percentExecuted; // Assuming this might be part of the data
+  final double percentExecuted;
+  bool isAssignedToCurrentUser; // Add this field
 
   ExecutionSheet({
     required this.id,
@@ -13,6 +14,7 @@ class ExecutionSheet {
     required this.associatedWorkSheetId,
     required this.associatedUser,
     this.percentExecuted = 0.0,
+    this.isAssignedToCurrentUser = false, // Initialize to false
   });
 
   factory ExecutionSheet.fromJson(Map<String, dynamic> json) {

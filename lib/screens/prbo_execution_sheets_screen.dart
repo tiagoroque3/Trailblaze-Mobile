@@ -105,6 +105,7 @@ class _PrboExecutionSheetsViewState extends State<PrboExecutionSheetsView> {
                               builder: (context) => ExecutionSheetDetailsScreen(
                                 sheet: sheet,
                                 jwtToken: widget.jwtToken,
+                                username: widget.username,
                               ),
                             ),
                           );

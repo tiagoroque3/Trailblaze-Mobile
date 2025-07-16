@@ -28,6 +28,15 @@ class Parcel {
     );
   }
 
+  factory Parcel.fromWorksheetJson(Map<String, dynamic> json) {
+    return Parcel(
+      id: json['polygonId']?.toString() ?? '',
+      name: 'Parcel ${json['polygonId']?.toString() ?? ''}',
+      description: '',
+      coordinates: [],
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
