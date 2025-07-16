@@ -43,6 +43,8 @@ class _MapScreenState extends State<MapScreen> {
   MapType _currentMapType = MapType.normal;
   // Selected worksheet
   int? _selectedWorksheetId;
+  // Panel visibility for mobile
+  bool _isPanelVisible = false;
 
   @override
   void initState() {
@@ -553,8 +555,103 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  /// Builds the side panel with worksheets
-  Widget _buildWorksheetPanel() {
+  /// Builds the worksheet panel for mobile (bottom sheet)
+  Widget _buildMobileWorksheetPanel() {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.3,
+      minChildSize: 0.1,
+      maxChildSize: 0.8,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                offset: Offset(0, -2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Panel content
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Worksheets',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        // Dropdown to select worksheet
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedWorksheetId?.toString(),
+                              isExpanded: true,
+                              items: _worksheets.map((worksheet) {
+                                return DropdownMenuItem<String>(
+                                  value: worksheet['id'].toString(),
+                                  child: Text('Worksheet #${worksheet['id']}'),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                setState(() {
+                                  _selectedWorksheetId = newValue != null ? int.tryParse(newValue) : null;
+                                  _createPolygons(); // Recreate polygons for new selection
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        // Selected worksheet details
+                        if (_selectedWorksheetId != null) _buildWorksheetDetails(),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Builds the worksheet panel for desktop (side panel)
+  Widget _buildDesktopWorksheetPanel() {
     return Container(
       width: 350,
       decoration: BoxDecoration(
@@ -693,135 +790,6 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Worksheet Map'),
-        backgroundColor: const Color(0xFF4F695B),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadWorksheets,
-            tooltip: 'Reload Worksheets',
-          ),
-        ],
-      ),
-      body: Row(
-        children: [
-          // Main map
-          Expanded(
-            child: Stack(
-              children: [
-                GoogleMap(
-                  onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(
-                    target: _currentLocation ?? _defaultLocation,
-                    zoom: 10,
-                  ),
-                  myLocationEnabled: true,
-                  myLocationButtonEnabled: false,
-                  markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
-                  polygons: _polygons,
-                  mapType: _currentMapType,
-                  onTap: (LatLng position) {
-                    print('Map tapped at: ${position.latitude}, ${position.longitude}');
-                  },
-                ),
-                // Map type controls (similar to web version)
-                Positioned(
-                  top: 16,
-                  left: 16,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildMapTypeButton('Map', MapType.normal),
-                        Container(
-                          width: 1,
-                          height: 30,
-                          color: Colors.grey.shade300,
-                        ),
-                        _buildMapTypeButton('Satellite', MapType.satellite),
-                      ],
-                    ),
-                  ),
-                ),
-                // Loading indicator
-                if (_isLoadingWorksheets)
-                  Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
-                          Text(
-                            'Loading...',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                // Action buttons (bottom right corner)
-                Positioned(
-                  bottom: 20,
-                  right: 20,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FloatingActionButton(
-                        heroTag: "location",
-                        onPressed: _isLoadingLocation ? null : _determinePosition,
-                        backgroundColor: const Color(0xFF4F695B),
-                        child: _isLoadingLocation
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : const Icon(Icons.my_location, color: Colors.white),
-                      ),
-                      const SizedBox(height: 12),
-                      FloatingActionButton(
-                        heroTag: "center",
-                        onPressed: () {
-                          if (_mapController != null) {
-                            _fitCameraToPolygons();
-                          }
-                        },
-                        backgroundColor: const Color(0xFF4F695B),
-                        child: const Icon(Icons.center_focus_strong, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Worksheet side panel
-          _buildWorksheetPanel(),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMapTypeButton(String label, MapType mapType) {
     bool isSelected = _currentMapType == mapType;
     return GestureDetector(
@@ -844,6 +812,146 @@ class _MapScreenState extends State<MapScreen> {
             fontSize: 14,
           ),
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Check if we're on mobile
+    bool isMobile = MediaQuery.of(context).size.width < 768;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Worksheet Map'),
+        backgroundColor: const Color(0xFF4F695B),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadWorksheets,
+            tooltip: 'Reload Worksheets',
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Main map
+          GoogleMap(
+            onMapCreated: _onMapCreated,
+            initialCameraPosition: CameraPosition(
+              target: _currentLocation ?? _defaultLocation,
+              zoom: 10,
+            ),
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            markers: _userLocationMarker != null ? {_userLocationMarker!} : {},
+            polygons: _polygons,
+            mapType: _currentMapType,
+            onTap: (LatLng position) {
+              print('Map tapped at: ${position.latitude}, ${position.longitude}');
+            },
+          ),
+          
+          // Map type controls
+          Positioned(
+            top: 16,
+            left: 16,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildMapTypeButton('Map', MapType.normal),
+                  Container(
+                    width: 1,
+                    height: 30,
+                    color: Colors.grey.shade300,
+                  ),
+                  _buildMapTypeButton('Satellite', MapType.satellite),
+                ],
+              ),
+            ),
+          ),
+
+          // Loading indicator
+          if (_isLoadingWorksheets)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Colors.white),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading...',
+                      style: TextStyle(color: Colors.white, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          // Action buttons (bottom right corner)
+          Positioned(
+            bottom: isMobile ? 120 : 20, // Leave space for mobile panel
+            right: 20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton(
+                  heroTag: "location",
+                  onPressed: _isLoadingLocation ? null : _determinePosition,
+                  backgroundColor: const Color(0xFF4F695B),
+                  child: _isLoadingLocation
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Icons.my_location, color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: "center",
+                  onPressed: () {
+                    if (_mapController != null) {
+                      _fitCameraToPolygons();
+                    }
+                  },
+                  backgroundColor: const Color(0xFF4F695B),
+                  child: const Icon(Icons.center_focus_strong, color: Colors.white),
+                ),
+              ],
+            ),
+          ),
+
+          // Worksheet panel - different for mobile and desktop
+          if (isMobile)
+            // Mobile: Bottom sheet
+            _buildMobileWorksheetPanel()
+          else
+            // Desktop: Side panel
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              child: _buildDesktopWorksheetPanel(),
+            ),
+        ],
       ),
     );
   }
