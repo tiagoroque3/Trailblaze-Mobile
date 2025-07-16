@@ -10,10 +10,9 @@ import 'package:proj4dart/proj4dart.dart';
 class ParcelService {
   static const String baseUrl = 'https://trailblaze-460312.appspot.com/rest';
 
-  /// Busca todas as folhas de obra e extrai as parcelas
-  static Future<List<Parcel>> fetchParcels({String? jwtToken}) async {
+  /// Busca todas as worksheets genéricas
+  static Future<List<Map<String, dynamic>>> fetchWorksheets({String? jwtToken}) async {
     try {
-      // Primeiro, busca todas as folhas de obra genéricas
       final Uri url = Uri.parse('$baseUrl/fo/search/generic');
       
       final Map<String, String> headers = {
@@ -27,47 +26,77 @@ class ParcelService {
       final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
-        final List<dynamic> worksheets = jsonDecode(response.body);
-
-        print('=== FOLHAS DE OBRA ENCONTRADAS ===');
-        print('Total de folhas: ${worksheets.length}');
-        for (var worksheet in worksheets) {
-          print('Folha ID: ${worksheet['id']}, Descrição: ${worksheet['posa']?['description'] ?? 'N/A'}');
-        }
-        print('================================');
+        final List<dynamic> worksheetsJson = jsonDecode(response.body);
         
-
-        List<Parcel> parcels = [];
+        print('=== WORKSHEETS ENCONTRADAS ===');
+        print('Total de worksheets: ${worksheetsJson.length}');
         
-        // Para cada folha de obra, busca os detalhes para obter as parcelas
-        for (var worksheet in worksheets) {
-          final int worksheetId = worksheet['id'];
-
-          print('\n--- Processando Folha $worksheetId ---');
-          final parcelsFromWorksheet = await _fetchParcelsFromWorksheet(worksheetId, jwtToken);
-          print('Parcelas encontradas na folha $worksheetId: ${parcelsFromWorksheet.length}');
-          parcels.addAll(parcelsFromWorksheet);
-        }
+        List<Map<String, dynamic>> worksheets = worksheetsJson.map((ws) {
+          print('Worksheet ID: ${ws['id']}, POSA: ${ws['posa']?['description'] ?? 'N/A'}');
+          return Map<String, dynamic>.from(ws);
+        }).toList();
         
-        print('\n=== RESUMO FINAL ===');
-        print('Total de parcelas carregadas: ${parcels.length}');
-        for (var parcel in parcels) {
-          print('Parcela: ${parcel.id} - ${parcel.name} (${parcel.coordinates.length} coordenadas)');
-        }
-        print('==================');
-        
-
-        return parcels;
+        print('===============================');
+        return worksheets;
       } else {
-        print('Erro ao buscar folhas de obra: ${response.statusCode} - ${response.body}');
+        print('Erro ao buscar worksheets: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
-      print('Erro na requisição de folhas de obra: $e');
+      print('Erro na requisição de worksheets: $e');
       return [];
     }
   }
 
+  /// Busca todas as folhas de obra e extrai as parcelas
+  static Future<Map<String, dynamic>> fetchWorksheetsWithParcels({String? jwtToken}) async {
+    try {
+      // Busca todas as worksheets genéricas
+      List<Map<String, dynamic>> worksheets = await fetchWorksheets(jwtToken: jwtToken);
+      
+      if (worksheets.isEmpty) {
+        return {'worksheets': [], 'parcels': []};
+      }
+
+      List<Map<String, dynamic>> worksheetsWithParcels = [];
+      List<Parcel> allParcels = [];
+      
+      // Para cada worksheet, busca os detalhes com parcelas
+      for (var worksheet in worksheets) {
+        final int worksheetId = worksheet['id'];
+        
+        print('\n--- Processando Worksheet $worksheetId ---');
+        final parcelsFromWorksheet = await _fetchParcelsFromWorksheet(worksheetId, jwtToken);
+        print('Parcelas encontradas na worksheet $worksheetId: ${parcelsFromWorksheet.length}');
+        
+        // Adiciona as parcelas à worksheet
+        Map<String, dynamic> worksheetWithParcels = Map<String, dynamic>.from(worksheet);
+        worksheetWithParcels['parcels'] = parcelsFromWorksheet;
+        worksheetsWithParcels.add(worksheetWithParcels);
+        
+        allParcels.addAll(parcelsFromWorksheet);
+      }
+      
+      print('\n=== RESUMO FINAL ===');
+      print('Total de worksheets: ${worksheetsWithParcels.length}');
+      print('Total de parcelas: ${allParcels.length}');
+      print('==================');
+      
+      return {
+        'worksheets': worksheetsWithParcels,
+        'parcels': allParcels,
+      };
+    } catch (e) {
+      print('Erro ao buscar worksheets com parcelas: $e');
+      return {'worksheets': [], 'parcels': []};
+    }
+  }
+
+  /// Método de compatibilidade para buscar apenas parcelas
+  static Future<List<Parcel>> fetchParcels({String? jwtToken}) async {
+    final result = await fetchWorksheetsWithParcels(jwtToken: jwtToken);
+    return List<Parcel>.from(result['parcels'] ?? []);
+  }
 
   /// Busca parcelas de uma folha de obra específica
   static Future<List<Parcel>> _fetchParcelsFromWorksheet(int worksheetId, String? jwtToken) async {
@@ -283,7 +312,7 @@ class ParcelService {
     
     return Parcel(
       id: '${worksheetId}_${backendParcel['polygonId'] ?? 0}',
-      name: 'Parcela ${backendParcel['polygonId'] ?? 0} - FO $worksheetId',
+      name: 'Parcela ${backendParcel['polygonId'] ?? 0}',
       description: 'AIGP: ${backendParcel['aigp'] ?? 'N/A'}\nID Rural: ${backendParcel['ruralPropertyId'] ?? 'N/A'}\nFolha: ${worksheet['posa']?['description'] ?? 'N/A'}',
       coordinates: coordinates,
       color: _getColorForWorksheet(worksheetId),
@@ -335,7 +364,7 @@ class ParcelService {
     return [
       Parcel(
         id: '1',
-        name: 'Parcela 1 - FO Exemplo A',
+        name: 'Parcela 1',
         description: 'Área de reflorestação norte\nAIGP: EX001\nID Rural: RUR001',
         coordinates: [
           [38.7223, -9.1393], // Lisboa
@@ -347,7 +376,7 @@ class ParcelService {
       ),
       Parcel(
         id: '2',
-        name: 'Parcela 2 - FO Exemplo B',
+        name: 'Parcela 2',
         description: 'Área de manutenção sul\nAIGP: EX002\nID Rural: RUR002',
         coordinates: [
           [38.7180, -9.1350],
@@ -359,7 +388,7 @@ class ParcelService {
       ),
       Parcel(
         id: '3',
-        name: 'Parcela 3 - FO Exemplo C',
+        name: 'Parcela 3',
         description: 'Área de monitorização leste\nAIGP: EX003\nID Rural: RUR003',
         coordinates: [
           [38.7150, -9.1300],
@@ -369,6 +398,63 @@ class ParcelService {
         ],
         color: '#0000FF',
       ),
+    ];
+  }
+
+  /// Dados de exemplo para worksheets
+  static List<Map<String, dynamic>> getMockWorksheets() {
+    return [
+      {
+        'id': 1,
+        'startingDate': '2025-03-01T00:00:00',
+        'finishingDate': '2025-06-30T00:00:00',
+        'issueDate': '2025-02-15T00:00:00',
+        'awardDate': '2025-02-20T00:00:00',
+        'serviceProviderId': 1001,
+        'posa': {
+          'code': 'POSA001',
+          'description': 'Reflorestação Norte'
+        },
+        'posp': {
+          'code': 'POSP001',
+          'description': 'Pastagens Melhoradas'
+        },
+        'parcels': getMockParcels().where((p) => p.id.contains('1')).toList(),
+      },
+      {
+        'id': 2,
+        'startingDate': '2025-04-15T00:00:00',
+        'finishingDate': '2025-08-15T00:00:00',
+        'issueDate': '2025-04-01T00:00:00',
+        'awardDate': '2025-04-05T00:00:00',
+        'serviceProviderId': 1002,
+        'posa': {
+          'code': 'POSA002',
+          'description': 'Manutenção Sul'
+        },
+        'posp': {
+          'code': 'POSP002',
+          'description': 'Conservação Florestal'
+        },
+        'parcels': getMockParcels().where((p) => p.id.contains('2')).toList(),
+      },
+      {
+        'id': 3,
+        'startingDate': '2025-06-02T00:00:00',
+        'finishingDate': '2025-09-15T00:00:00',
+        'issueDate': '2025-05-20T00:00:00',
+        'awardDate': '2025-05-25T00:00:00',
+        'serviceProviderId': 1003,
+        'posa': {
+          'code': 'POSA003',
+          'description': 'Monitorização Leste'
+        },
+        'posp': {
+          'code': 'POSP003',
+          'description': 'Vigilância Ambiental'
+        },
+        'parcels': getMockParcels().where((p) => p.id.contains('3')).toList(),
+      },
     ];
   }
 }

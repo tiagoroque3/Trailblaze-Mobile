@@ -34,6 +34,8 @@ class _MapScreenState extends State<MapScreen> {
   bool _isLoadingParcels = false;
   // Lista de parcelas/folhas de obra.
   List<Parcel> _parcels = [];
+  // Lista de worksheets reais do backend
+  List<Map<String, dynamic>> _worksheets = [];
   // Conjunto de polígonos para exibir no mapa.
   Set<Polygon> _polygons = {};
   // Localização padrão (Lisboa, Portugal)
@@ -41,9 +43,7 @@ class _MapScreenState extends State<MapScreen> {
   // Tipo de mapa atual
   MapType _currentMapType = MapType.normal;
   // Folha de obra selecionada
-  String? _selectedWorksheet;
-  // Lista de folhas de obra (worksheets)
-  List<Map<String, dynamic>> _worksheets = [];
+  int? _selectedWorksheetId;
 
   @override
   void initState() {
@@ -70,43 +70,57 @@ class _MapScreenState extends State<MapScreen> {
 
     if (!hasAccess) {
       setState(() {
+        _worksheets = ParcelService.getMockWorksheets();
         _parcels = ParcelService.getMockParcels();
-        _createMockWorksheets();
         _createPolygons();
         _isLoadingParcels = false;
       });
+      if (_worksheets.isNotEmpty) {
+        _selectedWorksheetId = _worksheets.first['id'];
+      }
       _showSnackBar('Sem permissões suficientes para carregar detalhes das folhas de obra.', isError: true);
       return;
     }
 
     try {
-      // Tenta buscar parcelas das folhas de obra do servidor
-      List<Parcel> parcels = await ParcelService.fetchParcels(
+      // Busca worksheets e parcelas do servidor
+      final result = await ParcelService.fetchWorksheetsWithParcels(
         jwtToken: widget.jwtToken,
       );
 
+      List<Map<String, dynamic>> worksheets = List<Map<String, dynamic>>.from(result['worksheets'] ?? []);
+      List<Parcel> parcels = List<Parcel>.from(result['parcels'] ?? []);
+
       // Usa dados de exemplo se não conseguir dados do servidor
-      if (parcels.isEmpty) {
+      if (worksheets.isEmpty) {
+        worksheets = ParcelService.getMockWorksheets();
         parcels = ParcelService.getMockParcels();
-        _createMockWorksheets();
-        _showSnackBar('A usar dados de exemplo das parcelas');
+        _showSnackBar('A usar dados de exemplo das worksheets');
       } else {
-        _createWorksheetsFromParcels(parcels);
-        _showSnackBar('${parcels.length} parcelas carregadas das folhas de obra');
+        _showSnackBar('${worksheets.length} worksheets e ${parcels.length} parcelas carregadas');
       }
 
       setState(() {
+        _worksheets = worksheets;
         _parcels = parcels;
         _createPolygons();
       });
+      
+      // Define a primeira worksheet como selecionada
+      if (_worksheets.isNotEmpty) {
+        _selectedWorksheetId = _worksheets.first['id'];
+      }
     } catch (e) {
-      print('Erro ao carregar parcelas: $e');
+      print('Erro ao carregar worksheets: $e');
       // Em caso de erro, usa dados de exemplo
       setState(() {
+        _worksheets = ParcelService.getMockWorksheets();
         _parcels = ParcelService.getMockParcels();
-        _createMockWorksheets();
         _createPolygons();
       });
+      if (_worksheets.isNotEmpty) {
+        _selectedWorksheetId = _worksheets.first['id'];
+      }
       _showSnackBar('Erro ao carregar dados do servidor. A usar dados de exemplo.', isError: true);
     } finally {
       setState(() {
@@ -115,66 +129,14 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  /// Cria worksheets de exemplo
-  void _createMockWorksheets() {
-    _worksheets = [
-      {
-        'id': 'worksheet_1',
-        'name': 'Worksheet #1',
-        'posp': 'Reflorestação Norte',
-        'start': '01/03/2025',
-        'finish': '30/06/2025',
-        'parcels': _parcels.where((p) => p.id.contains('1')).toList(),
-      },
-      {
-        'id': 'worksheet_2',
-        'name': 'Worksheet #2',
-        'posp': 'Manutenção Sul',
-        'start': '15/04/2025',
-        'finish': '15/08/2025',
-        'parcels': _parcels.where((p) => p.id.contains('2')).toList(),
-      },
-      {
-        'id': 'worksheet_3',
-        'name': 'Worksheet #3',
-        'posp': 'Monitorização Leste',
-        'start': '02/06/2025',
-        'finish': '15/09/2025',
-        'parcels': _parcels.where((p) => p.id.contains('3')).toList(),
-      },
-    ];
-    
-    if (_worksheets.isNotEmpty) {
-      _selectedWorksheet = _worksheets.first['id'];
-    }
-  }
-
-  /// Cria worksheets a partir das parcelas carregadas
-  void _createWorksheetsFromParcels(List<Parcel> parcels) {
-    // Agrupa parcelas por folha de obra (baseado no ID)
-    Map<String, List<Parcel>> groupedParcels = {};
-    
-    for (var parcel in parcels) {
-      String worksheetId = parcel.id.split('_')[0];
-      if (!groupedParcels.containsKey(worksheetId)) {
-        groupedParcels[worksheetId] = [];
-      }
-      groupedParcels[worksheetId]!.add(parcel);
-    }
-
-    _worksheets = groupedParcels.entries.map((entry) {
-      return {
-        'id': 'worksheet_${entry.key}',
-        'name': 'Worksheet #${entry.key}',
-        'posp': 'Folha de Obra ${entry.key}',
-        'start': '01/03/2025',
-        'finish': '30/09/2025',
-        'parcels': entry.value,
-      };
-    }).toList();
-
-    if (_worksheets.isNotEmpty) {
-      _selectedWorksheet = _worksheets.first['id'];
+  /// Formata data ISO para exibição
+  String _formatDate(String? isoDate) {
+    if (isoDate == null) return 'N/A';
+    try {
+      DateTime date = DateTime.parse(isoDate);
+      return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+    } catch (e) {
+      return 'N/A';
     }
   }
 
@@ -207,9 +169,9 @@ class _MapScreenState extends State<MapScreen> {
 
     // Filtra parcelas baseado na worksheet selecionada
     List<Parcel> filteredParcels = _parcels;
-    if (_selectedWorksheet != null) {
+    if (_selectedWorksheetId != null) {
       var selectedWorksheetData = _worksheets.firstWhere(
-        (w) => w['id'] == _selectedWorksheet,
+        (w) => w['id'] == _selectedWorksheetId,
         orElse: () => {},
       );
       if (selectedWorksheetData.isNotEmpty) {
@@ -360,9 +322,9 @@ class _MapScreenState extends State<MapScreen> {
   /// Ajusta a câmera para mostrar todos os polígonos
   void _fitCameraToPolygons() {
     List<Parcel> parcelsToShow = _parcels;
-    if (_selectedWorksheet != null) {
+    if (_selectedWorksheetId != null) {
       var selectedWorksheetData = _worksheets.firstWhere(
-        (w) => w['id'] == _selectedWorksheet,
+        (w) => w['id'] == _selectedWorksheetId,
         orElse: () => {},
       );
       if (selectedWorksheetData.isNotEmpty) {
@@ -547,17 +509,17 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _selectedWorksheet,
+                      value: _selectedWorksheetId?.toString(),
                       isExpanded: true,
                       items: _worksheets.map((worksheet) {
                         return DropdownMenuItem<String>(
-                          value: worksheet['id'],
-                          child: Text(worksheet['name']),
+                          value: worksheet['id'].toString(),
+                          child: Text('Worksheet #${worksheet['id']}'),
                         );
                       }).toList(),
                       onChanged: (String? newValue) {
                         setState(() {
-                          _selectedWorksheet = newValue;
+                          _selectedWorksheetId = newValue != null ? int.tryParse(newValue) : null;
                           _createPolygons(); // Recria polígonos para a nova seleção
                         });
                       },
@@ -569,7 +531,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
           // Detalhes da worksheet selecionada
           Expanded(
-            child: _selectedWorksheet != null
+            child: _selectedWorksheetId != null
                 ? _buildWorksheetDetails()
                 : const Center(
                     child: Text('Selecione uma worksheet'),
@@ -583,7 +545,7 @@ class _MapScreenState extends State<MapScreen> {
   /// Constrói os detalhes da worksheet selecionada
   Widget _buildWorksheetDetails() {
     var selectedWorksheetData = _worksheets.firstWhere(
-      (w) => w['id'] == _selectedWorksheet,
+      (w) => w['id'] == _selectedWorksheetId,
       orElse: () => {},
     );
 
@@ -597,7 +559,7 @@ class _MapScreenState extends State<MapScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            selectedWorksheetData['name'],
+            'Worksheet #${selectedWorksheetData['id']}',
             style: const TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -605,11 +567,17 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildDetailRow('POSP:', selectedWorksheetData['posp']),
+          _buildDetailRow('POSA:', selectedWorksheetData['posa']?['description'] ?? 'N/A'),
           const SizedBox(height: 8),
-          _buildDetailRow('Start:', selectedWorksheetData['start']),
+          _buildDetailRow('POSP:', selectedWorksheetData['posp']?['description'] ?? 'N/A'),
           const SizedBox(height: 8),
-          _buildDetailRow('Finish:', selectedWorksheetData['finish']),
+          _buildDetailRow('Início:', _formatDate(selectedWorksheetData['startingDate'])),
+          const SizedBox(height: 8),
+          _buildDetailRow('Fim:', _formatDate(selectedWorksheetData['finishingDate'])),
+          const SizedBox(height: 8),
+          _buildDetailRow('Emissão:', _formatDate(selectedWorksheetData['issueDate'])),
+          const SizedBox(height: 8),
+          _buildDetailRow('Adjudicação:', _formatDate(selectedWorksheetData['awardDate'])),
           const SizedBox(height: 20),
           Text(
             'Parcelas (${(selectedWorksheetData['parcels'] as List).length})',
