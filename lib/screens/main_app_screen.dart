@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
-import 'package:trailblaze_app/screens/operation_screen.dart';
+import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
 
 class MainAppScreen extends StatefulWidget {
@@ -229,16 +229,17 @@ class _MainAppScreenState extends State<MainAppScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.build),
-              title: const Text('Operation Management (PO)'),
+              title: const Text('Execution Sheets'),
               onTap: () {
                 Navigator.pop(context);
                 if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => OperationScreen(
+                      builder: (context) => ExecutionSheetsScreen(
                         username: widget.username!,
-                        jwtToken: widget.jwtToken!,
+                        jwtToken: widget.jwtToken!, 
+                        roles: widget.roles ?? [],
                       ),
                     ),
                   );

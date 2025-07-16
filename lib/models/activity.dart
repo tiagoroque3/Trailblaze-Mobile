@@ -1,59 +1,35 @@
-// lib/models/activity.dart
 class Activity {
   final String id;
-  final String operationId;
+  final String parcelOperationExecutionId;
   final String operatorId;
   final DateTime startTime;
   final DateTime? endTime;
   final String? observations;
-  final List<String> photos;
-  final List<String> gpsTracks;
+  final List<String> photoUrls;
 
   Activity({
     required this.id,
-    required this.operationId,
+    required this.parcelOperationExecutionId,
     required this.operatorId,
     required this.startTime,
     this.endTime,
     this.observations,
-    this.photos = const [],
-    this.gpsTracks = const [],
+    this.photoUrls = const [],
   });
 
   factory Activity.fromJson(Map<String, dynamic> json) {
     return Activity(
-      id: json['id'] as String,
-      operationId: json['operationId'] as String,
-      operatorId: json['operatorId'] as String,
-      startTime: DateTime.fromMillisecondsSinceEpoch(json['startTime'] as int),
-      endTime: json['endTime'] != null && json['endTime'] > 0
-          ? DateTime.fromMillisecondsSinceEpoch(json['endTime'] as int)
+      id: json['id'] ?? '',
+      parcelOperationExecutionId: json['parcelOperationExecutionId'] ?? '',
+      operatorId: json['operatorId'] ?? '',
+      startTime: json['startTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['startTime'])
+          : DateTime.now(),
+      endTime: json['endTime'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['endTime'])
           : null,
-      observations: json['observations'] as String?,
-      // Corrected parsing: expect a List<dynamic> and map to List<String>
-      photos: (json['photos'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
-      // Corrected parsing: expect a List<dynamic> and map to List<String>
-      gpsTracks: (json['gpsTracks'] as List<dynamic>?)
-              ?.map((e) => e as String)
-              .toList() ??
-          [],
+      observations: json['observations'],
+      photoUrls: List<String>.from(json['photoUrls'] ?? []),
     );
-  }
-
-  // toJson method is kept for completeness, no changes needed here for now.
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'operationId': operationId,
-      'operatorId': operatorId,
-      'startTime': startTime.millisecondsSinceEpoch,
-      'endTime': endTime?.millisecondsSinceEpoch ?? 0,
-      'observations': observations,
-      'photos': photos,
-      'gpsTracks': gpsTracks,
-    };
   }
 }

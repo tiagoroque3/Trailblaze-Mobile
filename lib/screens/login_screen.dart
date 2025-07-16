@@ -25,28 +25,19 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<Map<String, dynamic>?> _fetchUserDetails(String username, String jwtToken) async {
-    final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/$username');
-
-    try {
-      final response = await http.get(
-        userDetailsUrl,
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'Authorization': 'Bearer $jwtToken',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      } else {
-        print('Failed to load user details for role: ${response.statusCode} - ${response.body}');
-        return null;
-      }
-    } catch (e) {
-      print('Error fetching user details for role: $e');
-      return null;
+  /// Decodes the JWT token to extract the payload, including user roles.
+  Map<String, dynamic> _parseJwt(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) {
+      throw Exception('Invalid token');
     }
+
+    final payload = parts[1];
+    final normalized = base64Url.normalize(payload);
+    final resp = utf8.decode(base64Url.decode(normalized));
+
+    final payloadMap = json.decode(resp);
+    return payloadMap;
   }
 
   Future<void> _loginButtonPressed() async {
@@ -75,17 +66,18 @@ class _LoginScreenState extends State<LoginScreen> {
         final Map<String, dynamic> responseBody = jsonDecode(response.body);
         final String token = responseBody['token'];
 
-        final Map<String, dynamic>? userData = await _fetchUserDetails(username, token);
-        List<String>? userRoles = (userData?['roles'] as List<dynamic>?)?.cast<String>();
+        // Decode the token to get the roles directly
+        final Map<String, dynamic> jwtPayload = _parseJwt(token);
+        final List<String> userRoles = (jwtPayload['roles'] as List<dynamic>?)?.cast<String>() ?? [];
 
+        // Store token, username, and roles securely
         await _storage.write(key: 'jwtToken', value: token);
         await _storage.write(key: 'username', value: username);
-        if (userRoles != null) {
-          await _storage.write(key: 'userRoles', value: jsonEncode(userRoles));
-        }
+        await _storage.write(key: 'userRoles', value: jsonEncode(userRoles));
 
         print('Login successful! Token: $token, Roles: $userRoles');
 
+        // Navigate to the main app screen
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -134,6 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The rest of the UI build method remains the same...
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(

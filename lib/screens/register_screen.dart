@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:trailblaze_app/screens/login_screen.dart'; // To navigate to login after successful registration
+import 'package:trailblaze_app/screens/login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,7 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   final TextEditingController _fullNameController = TextEditingController();
-  bool _isPublicProfile = false; // Default to private
+  bool _isPublicProfile = false;
   bool _isLoading = false;
 
   @override
@@ -44,6 +44,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final String password = _passwordController.text;
     final String fullName = _fullNameController.text;
 
+    // This endpoint is for non-institutional users, as per your backend logic.
     final Uri registerUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/register/civic');
 
     try {
@@ -57,7 +58,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': email,
           'password': password,
           'fullName': fullName,
-          'isPublic': _isPublicProfile, // Send the profile visibility preference
+          // FIX: Changed 'isPublic' to 'publicProfile' to match the backend Java DTO.
+          'publicProfile': _isPublicProfile,
         }),
       );
 
@@ -65,26 +67,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
         _isLoading = false;
       });
 
-      if (response.statusCode == 201) { // 201 Created for successful registration
+      if (response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Acount registered successfully!')),
+          const SnackBar(content: Text('Account registered successfully! Awaiting activation.')),
         );
-        // Navigate to login screen after successful registration
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => LoginScreen()),
+          MaterialPageRoute(builder: (context) => const LoginScreen()),
         );
       } else {
         final String errorMessage = response.body;
-        print('Register failed: ${response.statusCode} - $errorMessage');
+        print('Registration failed: ${response.statusCode} - $errorMessage');
         _showErrorDialog(errorMessage);
       }
     } catch (e) {
       setState(() {
         _isLoading = false;
       });
-      print('An error ocurred during registration: $e');
-      _showErrorDialog('An error occurred during registration. Please try again later.');
+      print('An error occurred during registration: $e');
+      _showErrorDialog('An error occurred. Please try again later.');
     }
   }
 
@@ -110,10 +111,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // The rest of the UI build method remains the same...
     return Scaffold(
       appBar: AppBar(
         title: const Text('Register Account'),
-        backgroundColor: Color(0xFF4F695B),
+        backgroundColor: const Color(0xFF4F695B),
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -154,7 +156,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextField(
                 controller: _fullNameController,
                 decoration: InputDecoration(
-                  labelText: 'Nome',
+                  labelText: 'Full Name',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.0)),
                   prefixIcon: const Icon(Icons.badge),
                 ),
@@ -181,7 +183,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 16.0),
               SwitchListTile(
-                title: const Text('Turn Public Profile On/Off'),
+                title: const Text('Make Profile Public'),
                 value: _isPublicProfile,
                 onChanged: (bool value) {
                   setState(() {
@@ -189,6 +191,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   });
                 },
                 secondary: Icon(_isPublicProfile ? Icons.public : Icons.vpn_lock),
+                activeColor: const Color(0xFF4F695B),
               ),
               const SizedBox(height: 24.0),
               _isLoading
@@ -196,7 +199,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   : ElevatedButton(
                       onPressed: _registerButtonPressed,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF4F695B),
+                        backgroundColor: const Color(0xFF4F695B),
                         padding: const EdgeInsets.symmetric(vertical: 16.0),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10.0),
