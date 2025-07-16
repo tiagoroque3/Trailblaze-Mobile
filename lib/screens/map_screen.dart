@@ -85,14 +85,23 @@ class _MapScreenState extends State<MapScreen> {
 
   /// Cria os polígonos a partir das parcelas carregadas.
   void _createPolygons() {
+
+    print('\n=== CRIANDO POLÍGONOS ===');
+    print('Total de parcelas para processar: ${_parcels.length}');
+    
     Set<Polygon> polygons = {};
+    int polygonsCreated = 0;
+    int polygonsSkipped = 0;
 
     for (int i = 0; i < _parcels.length; i++) {
       final parcel = _parcels[i];
+      print('\nProcessando parcela ${i + 1}/${_parcels.length}: ${parcel.id}');
       
       // Validação das coordenadas antes de criar o polígono
       if (parcel.coordinates.length < 3) {
-        print('Parcela ${parcel.id} tem menos de 3 coordenadas, ignorando');
+        print('⚠️ Parcela ${parcel.id} tem apenas ${parcel.coordinates.length} coordenadas (mínimo 3), ignorando');
+        polygonsSkipped++;
+
         continue;
       }
       
@@ -104,7 +113,9 @@ class _MapScreenState extends State<MapScreen> {
             
             // Validação adicional
             if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-              print('Coordenada inválida ignorada: [$lat, $lng] na parcela ${parcel.id}');
+
+              print('⚠️ Coordenada inválida ignorada: [$lat, $lng] na parcela ${parcel.id}');
+
               return LatLng(38.7223, -9.1393); // Lisboa como fallback
             }
             
@@ -113,14 +124,20 @@ class _MapScreenState extends State<MapScreen> {
           .toList();
       
       // Debug: imprime informações do polígono
-      print('Criando polígono para ${parcel.name} com ${polygonPoints.length} pontos válidos');
+
+      print('✓ Criando polígono para ${parcel.name}:');
+      print('  - ${polygonPoints.length} pontos válidos');
       if (polygonPoints.isNotEmpty) {
-        print('Primeira coordenada: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+        print('  - Primeira: ${polygonPoints.first.latitude}, ${polygonPoints.first.longitude}');
+        print('  - Última: ${polygonPoints.last.latitude}, ${polygonPoints.last.longitude}');
+
         
         // Calcula e mostra o centro do polígono para debug
         double avgLat = polygonPoints.map((p) => p.latitude).reduce((a, b) => a + b) / polygonPoints.length;
         double avgLng = polygonPoints.map((p) => p.longitude).reduce((a, b) => a + b) / polygonPoints.length;
-        print('Centro calculado: $avgLat, $avgLng');
+
+        print('  - Centro: $avgLat, $avgLng');
+
       }
 
       // Define cores alternadas se não especificada
@@ -150,7 +167,18 @@ class _MapScreenState extends State<MapScreen> {
           onTap: () => _onPolygonTapped(parcel),
         ),
       );
+
+      
+      polygonsCreated++;
+      print('✓ Polígono ${parcel.id} adicionado ao mapa');
     }
+
+    print('\n=== RESUMO DA CRIAÇÃO DE POLÍGONOS ===');
+    print('Polígonos criados: $polygonsCreated');
+    print('Polígonos ignorados: $polygonsSkipped');
+    print('Total no mapa: ${polygons.length}');
+    print('=====================================');
+    
 
     setState(() {
       _polygons = polygons;
@@ -158,7 +186,11 @@ class _MapScreenState extends State<MapScreen> {
     
     // Se temos polígonos, ajusta a câmera para mostrar todos
     if (polygons.isNotEmpty && _mapController != null) {
+      print('Ajustando câmera para mostrar todos os polígonos...');
       _fitCameraToPolygons();
+    } else if (polygons.isEmpty) {
+      print('⚠️ Nenhum polígono foi criado para exibir no mapa!');
+
     }
   }
 
