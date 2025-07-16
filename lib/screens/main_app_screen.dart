@@ -286,7 +286,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                       builder: (context) => ExecutionSheetsScreen(
                         username: widget.username!,
                         jwtToken: widget.jwtToken!,
-                        userRoles: _displayRoles,
+                        roles: _displayRoles ?? [],
                       ),
                     ),
                   );
