@@ -5,7 +5,6 @@ import 'package:trailblaze_app/models/execution_sheet.dart';
 import 'package:trailblaze_app/models/operation_execution.dart';
 import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/screens/prbo_parcel_activity_screen.dart';
-import 'package:trailblaze_app/screens/prbo_create_execution_sheet_screen.dart';
 import 'package:trailblaze_app/services/prbo_execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 
@@ -77,52 +76,6 @@ class _PrboExecutionSheetDetailsScreenState
     }
   }
 
-  void _editExecutionSheet() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PrboCreateExecutionSheetScreen(
-          jwtToken: widget.jwtToken,
-          username: widget.username,
-          editingSheet: widget.sheet,
-        ),
-      ),
-    ).then((_) => _refreshData());
-  }
-
-  void _exportExecutionSheet() async {
-    try {
-      await PrboExecutionService.exportExecutionSheet(
-        jwtToken: widget.jwtToken,
-        sheetId: widget.sheet.id,
-      );
-
-      // Show export success dialog
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Export Successful'),
-          content: const Text(
-            'Execution sheet has been exported successfully.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to export execution sheet: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -130,30 +83,13 @@ class _PrboExecutionSheetDetailsScreenState
         title: Text(widget.sheet.title),
         backgroundColor: AppColors.primaryGreen,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _editExecutionSheet,
-            tooltip: 'Edit Execution Sheet',
-          ),
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'export') {
-                _exportExecutionSheet();
-              } else if (value == 'refresh') {
+              if (value == 'refresh') {
                 _refreshData();
               }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'export',
-                child: Row(
-                  children: [
-                    Icon(Icons.download, size: 20),
-                    SizedBox(width: 8),
-                    Text('Export'),
-                  ],
-                ),
-              ),
               const PopupMenuItem(
                 value: 'refresh',
                 child: Row(

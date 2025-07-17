@@ -25,7 +25,6 @@ class PrboParcelActivityScreen extends StatefulWidget {
 
 class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
   late Future<List<Activity>> _activitiesFuture;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -55,100 +54,6 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
     } catch (e) {
       // Fall back to cached activities
       return widget.parcelOperationExecution.activities;
-    }
-  }
-
-  Future<void> _startActivity() async {
-    if (widget.parcelOperationExecution.operationExecution?.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cannot start activity: Operation execution ID not available',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await PrboExecutionService.startActivity(
-        operationExecutionId:
-            widget.parcelOperationExecution.operationExecution!.id,
-        parcelOperationExecutionId: widget.parcelOperationExecution.id,
-        jwtToken: widget.jwtToken,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Activity started successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      _refreshActivities();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to start activity: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _stopActivity(Activity activity) async {
-    if (widget.parcelOperationExecution.operationExecution?.id == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Cannot stop activity: Operation execution ID not available',
-          ),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await PrboExecutionService.stopActivity(
-        operationExecutionId:
-            widget.parcelOperationExecution.operationExecution!.id,
-        activityId: activity.id,
-        jwtToken: widget.jwtToken,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Activity stopped successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      _refreshActivities();
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to stop activity: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -191,36 +96,6 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
 
   Widget _buildActivityActions(Activity activity) {
     List<Widget> actions = [];
-
-    // Stop button (if in progress)
-    if (activity.endTime == null) {
-      actions.add(
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : () => _stopActivity(activity),
-          icon: const Icon(Icons.stop, size: 18),
-          label: const Text('Stop'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-      );
-    } else {
-      // Start new button (if completed)
-      actions.add(
-        ElevatedButton.icon(
-          onPressed: _isLoading ? null : _startActivity,
-          icon: const Icon(Icons.play_arrow, size: 18),
-          label: const Text('Start New'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.green,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          ),
-        ),
-      );
-    }
 
     // View details button
     actions.add(
@@ -370,25 +245,6 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
           ),
         ],
       ),
-      floatingActionButton: _isLoading
-          ? FloatingActionButton(
-              onPressed: null,
-              backgroundColor: Colors.grey.shade400,
-              child: const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              ),
-            )
-          : FloatingActionButton(
-              onPressed: _startActivity,
-              backgroundColor: AppColors.primaryGreen,
-              tooltip: 'Start New Activity',
-              child: const Icon(Icons.add, color: Colors.white),
-            ),
     );
   }
 
@@ -424,7 +280,7 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Start your first activity by tapping the + button',
+            'This parcel doesn\'t have any activities yet',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
