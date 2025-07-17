@@ -5,6 +5,7 @@ import 'package:trailblaze_app/models/execution_sheet.dart';
 import 'package:trailblaze_app/models/operation_execution.dart';
 import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/screens/prbo_parcel_activity_screen.dart';
+import 'package:trailblaze_app/screens/prbo_assign_parcel_screen.dart';
 import 'package:trailblaze_app/services/prbo_execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 
@@ -73,6 +74,24 @@ class _PrboExecutionSheetDetailsScreenState
       return parcelOperations;
     } catch (e) {
       throw Exception('Failed to load execution sheet data: $e');
+    }
+  }
+
+  void _navigateToAssignParcel() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PrboAssignParcelScreen(
+          executionSheet: widget.sheet,
+          jwtToken: widget.jwtToken,
+          username: widget.username,
+        ),
+      ),
+    );
+
+    // If the assignment was successful, refresh the data
+    if (result == true) {
+      _refreshData();
     }
   }
 
@@ -213,6 +232,13 @@ class _PrboExecutionSheetDetailsScreenState
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _navigateToAssignParcel,
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        label: const Text('Assign Parcel'),
+        icon: const Icon(Icons.add_task),
       ),
     );
   }

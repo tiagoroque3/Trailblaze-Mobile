@@ -237,9 +237,9 @@ class PrboExecutionService {
   /// Assign operations to parcels
   static Future<Map<String, dynamic>> assignOperationToParcels({
     required String jwtToken,
+    required String executionSheetId,
     required String operationId,
-    required List<String> parcelIds,
-    Map<String, dynamic>? additionalData,
+    required List<Map<String, dynamic>> parcelExecutions,
   }) async {
     try {
       final response = await http.post(
@@ -249,9 +249,9 @@ class PrboExecutionService {
           'Authorization': 'Bearer $jwtToken',
         },
         body: jsonEncode({
+          'executionSheetId': executionSheetId,
           'operationId': operationId,
-          'parcelIds': parcelIds,
-          ...?additionalData,
+          'parcelExecutions': parcelExecutions,
         }),
       );
 
@@ -264,6 +264,33 @@ class PrboExecutionService {
       }
     } catch (e) {
       throw Exception('Error assigning operation to parcels: $e');
+    }
+  }
+
+  /// Fetch parcels for a worksheet (used for assign operation)
+  static Future<List<Map<String, dynamic>>> fetchParcelsForWorksheet({
+    required String worksheetId,
+    required String jwtToken,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/fo/$worksheetId/parcels'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        return data.cast<Map<String, dynamic>>();
+      } else {
+        throw Exception(
+          'Failed to load parcels for worksheet: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      throw Exception('Error fetching parcels for worksheet: $e');
     }
   }
 

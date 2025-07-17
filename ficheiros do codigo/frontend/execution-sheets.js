@@ -761,42 +761,52 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Assign operations
+    // Assign operations (enhanced for PRBO users)
     window.showAssignModal = async function(sheetId = null) {
         if (!canManage()) {
-            showMessage('Insufficient permissions');
+            showMessage('Insufficient permissions - only PRBO users can assign parcels to operations');
             return;
         }
 
         const selectedSheet = sheetId || (currentSheet ? currentSheet.executionSheet.id : '');
 
-        openModal('Assign Operations', `
+        openModal('Assign Parcels to Operations', `
             <form id="assign-form">
                 <div class="form-group">
                     <label for="assign-sheet-id">Execution Sheet ID *</label>
                     <input type="text" id="assign-sheet-id" name="executionSheetId" value="${selectedSheet}" required readonly>
+                    <small class="form-hint">The execution sheet where the operation will be assigned</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-operation-select">Operation *</label>
                     <select id="assign-operation-select" name="operationId" required>
                         <option value="">Loading operations...</option>
                     </select>
-                    <small class="form-hint">Select an existing operation from this execution sheet</small>
+                    <small class="form-hint">Select the operation that will be performed on the parcel</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-parcel-select">Parcel *</label>
                     <select id="assign-parcel-select" name="parcelId" required disabled>
                         <option value="">Select an operation first</option>
                     </select>
-                    <small class="form-hint">Select an existing parcel or add a new one</small>
+                    <small class="form-hint">Select a parcel from the associated worksheet</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-area">Expected Area (ha) *</label>
-                    <input type="number" id="assign-area" name="area" step="0.01" required>
+                    <input type="number" id="assign-area" name="area" step="0.01" min="0" required>
+                    <small class="form-hint">Expected area to be worked on this parcel</small>
+                </div>
+                <div class="form-group">
+                    <label for="assign-notes">Assignment Notes</label>
+                    <textarea id="assign-notes" name="notes" rows="3" placeholder="Optional notes about this assignment..."></textarea>
+                    <small class="form-hint">Optional notes or special instructions for this assignment</small>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="action-btn">Assign</button>
+                    <button type="submit" class="action-btn">
+                        <span class="btn-text">Assign Parcel</span>
+                        <span class="btn-loading" style="display: none;">Assigning...</span>
+                    </button>
                 </div>
             </form>
         `);
@@ -811,19 +821,57 @@ document.addEventListener('DOMContentLoaded', () => {
     async function assignOperation(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
+        
+        // Show loading state on button
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoading = submitBtn.querySelector('.btn-loading');
+        
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline';
+        submitBtn.disabled = true;
+
         const data = {
             executionSheetId: formData.get('executionSheetId'),
             operationId: formData.get('operationId'),
             parcelExecutions: [{
                 parcelId: formData.get('parcelId'),
                 area: parseFloat(formData.get('area'))
-            }]
+            }],
+            expectedTotalArea: parseFloat(formData.get('area')),
+            notes: formData.get('notes') || ''
         };
+
+        // Validation
+        if (!data.operationId) {
+            showMessage('Please select an operation', 'error');
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            submitBtn.disabled = false;
+            return;
+        }
+
+        if (!data.parcelExecutions[0].parcelId) {
+            showMessage('Please select a parcel', 'error');
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            submitBtn.disabled = false;
+            return;
+        }
+
+        if (!data.parcelExecutions[0].area || data.parcelExecutions[0].area <= 0) {
+            showMessage('Please enter a valid area greater than 0', 'error');
+            btnText.style.display = 'inline';
+            btnLoading.style.display = 'none';
+            submitBtn.disabled = false;
+            return;
+        }
 
         showLoading();
         closeModal();
 
         try {
+            console.log('Sending assign request:', data);
             const response = await fetch(`${BASE_URL}/operations/assign`, {
                 method: 'POST',
                 headers: authHeaders(),
@@ -831,18 +879,30 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const result = await response.text();
+            
             if (response.ok) {
-                showMessage('Operation assigned successfully!', 'success');
+                showMessage(`Parcel ${data.parcelExecutions[0].parcelId} successfully assigned to operation ${data.operationId}!`, 'success');
+                
+                // Refresh the current view
                 if (currentSheet) {
-                    viewSheetDetails(currentSheet.executionSheet.id);
+                    await viewSheetDetails(currentSheet.executionSheet.id);
                 }
-                loadExecutionSheets();
+                await loadExecutionSheets();
+                
             } else {
-                showMessage(result || 'Error assigning operation');
+                let errorMessage = 'Error assigning parcel to operation';
+                try {
+                    const errorData = JSON.parse(result);
+                    errorMessage = errorData.message || errorData.error || result;
+                } catch {
+                    errorMessage = result || errorMessage;
+                }
+                console.error('Assignment error:', errorMessage);
+                showMessage(errorMessage, 'error');
             }
         } catch (error) {
             console.error('Error assigning operation:', error);
-            showMessage('Connection error');
+            showMessage('Connection error - please check your network and try again', 'error');
         } finally {
             hideLoading();
         }
@@ -1586,9 +1646,17 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
     }
 
     async function loadOperationsForAssign(sheetId) {
-        if (!sheetId) return;
+        if (!sheetId) {
+            console.warn('No sheet ID provided for loading operations');
+            return;
+        }
 
+        const operationSelect = document.getElementById('assign-operation-select');
+        
         try {
+            operationSelect.innerHTML = '<option value="">Loading operations...</option>';
+            operationSelect.disabled = true;
+
             const response = await fetch(`${BASE_URL}/fe/${sheetId}`, {
                 headers: authHeaders()
             });
@@ -1597,36 +1665,58 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
                 const sheetData = await response.json();
                 const operations = sheetData.operations || [];
                 
-                const operationSelect = document.getElementById('assign-operation-select');
                 operationSelect.innerHTML = '<option value="">Select an operation</option>';
                 
-                operations.forEach(op => {
-                    const opExec = op.operationExecution;
-                    const option = document.createElement('option');
-                    option.value = opExec.operationId;
-                    option.textContent = `${opExec.operationId} (Execution ID: ${opExec.id})`;
-                    option.dataset.executionId = opExec.id;
-                    operationSelect.appendChild(option);
-                });
+                if (operations.length === 0) {
+                    const noOpsOption = document.createElement('option');
+                    noOpsOption.value = '';
+                    noOpsOption.textContent = 'No operations available in this execution sheet';
+                    noOpsOption.disabled = true;
+                    operationSelect.appendChild(noOpsOption);
+                } else {
+                    operations.forEach(op => {
+                        const opExec = op.operationExecution;
+                        const option = document.createElement('option');
+                        option.value = opExec.operationId;
+                        option.textContent = `Operation ${opExec.operationId} (${Math.round(opExec.percentExecuted || 0)}% complete)`;
+                        option.dataset.executionId = opExec.id;
+                        option.dataset.expectedArea = opExec.expectedTotalArea || 0;
+                        operationSelect.appendChild(option);
+                    });
+                }
+                
+                operationSelect.disabled = false;
             } else {
-                showMessage('Error loading operations');
+                operationSelect.innerHTML = '<option value="">Error loading operations</option>';
+                const errorText = await response.text();
+                console.error('Error loading operations:', errorText);
+                showMessage('Error loading operations for this execution sheet', 'error');
             }
         } catch (error) {
             console.error('Error loading operations for assign:', error);
-            showMessage('Error loading operations');
+            operationSelect.innerHTML = '<option value="">Connection error</option>';
+            showMessage('Network error while loading operations', 'error');
         }
     }
 
     async function loadParcelsForOperation(operationId) {
+        const parcelSelect = document.getElementById('assign-parcel-select');
+        
+        if (!operationId) {
+            parcelSelect.innerHTML = '<option value="">Select an operation first</option>';
+            parcelSelect.disabled = true;
+            return;
+        }
+
         try {
-            const parcelSelect = document.getElementById('assign-parcel-select');
             parcelSelect.innerHTML = '<option value="">Loading parcels...</option>';
+            parcelSelect.disabled = true;
 
             // Get the worksheetId from the current execution sheet
             const sheetId = document.getElementById('assign-sheet-id').value;
             if (!sheetId) {
                 parcelSelect.innerHTML = '<option value="">No execution sheet selected</option>';
-                showMessage('No execution sheet selected');
+                showMessage('No execution sheet selected', 'error');
                 return;
             }
 
@@ -1637,7 +1727,7 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
             if (!sheetResponse.ok) {
                 parcelSelect.innerHTML = '<option value="">Error loading execution sheet</option>';
-                showMessage('Error loading execution sheet data');
+                showMessage('Error loading execution sheet data', 'error');
                 return;
             }
 
@@ -1646,8 +1736,88 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
             if (!worksheetId) {
                 parcelSelect.innerHTML = '<option value="">No worksheet found</option>';
-                showMessage('Execution sheet has no associated worksheet');
+                showMessage('Execution sheet has no associated worksheet', 'error');
                 return;
+            }
+
+            // Now get all parcels that belong to the same worksheet
+            const parcelsResponse = await fetch(`${BASE_URL}/fo/${worksheetId}/parcels`, {
+                headers: authHeaders()
+            });
+
+            if (!parcelsResponse.ok) {
+                parcelSelect.innerHTML = '<option value="">Error loading parcels</option>';
+                const errorText = await parcelsResponse.text();
+                console.error('Error loading parcels:', errorText);
+                showMessage('Error loading parcels from worksheet', 'error');
+                return;
+            }
+
+            const parcels = await parcelsResponse.json();
+            
+            // Clear and populate the parcel dropdown
+            parcelSelect.innerHTML = '<option value="">Select a parcel</option>';
+            
+            if (parcels && parcels.length > 0) {
+                // Filter out parcels that are already assigned to this operation
+                const assignedParcels = await getAssignedParcelsForOperation(operationId);
+                const availableParcels = parcels.filter(parcel => 
+                    !assignedParcels.includes(String(parcel.id || parcel.parcelId))
+                );
+                
+                if (availableParcels.length === 0) {
+                    const noParcelsOption = document.createElement('option');
+                    noParcelsOption.value = '';
+                    noParcelsOption.textContent = 'All parcels in this worksheet are already assigned to this operation';
+                    noParcelsOption.disabled = true;
+                    parcelSelect.appendChild(noParcelsOption);
+                } else {
+                    availableParcels.forEach(parcel => {
+                        const option = document.createElement('option');
+                        option.value = parcel.id || parcel.parcelId;
+                        option.textContent = `Parcel ${parcel.id || parcel.parcelId} - ${parcel.aigp || 'N/A'} (${parcel.ruralPropertyId || 'N/A'})`;
+                        option.dataset.area = parcel.area || 0;
+                        parcelSelect.appendChild(option);
+                    });
+                    
+                    // Auto-fill area when parcel is selected
+                    parcelSelect.addEventListener('change', function() {
+                        const selectedOption = this.options[this.selectedIndex];
+                        const areaInput = document.getElementById('assign-area');
+                        if (selectedOption.dataset.area && !areaInput.value) {
+                            areaInput.value = selectedOption.dataset.area;
+                        }
+                    });
+                }
+                
+            } else {
+                const noParcelOption = document.createElement('option');
+                noParcelOption.value = '';
+                noParcelOption.textContent = 'No parcels available in this worksheet';
+                noParcelOption.disabled = true;
+                parcelSelect.appendChild(noParcelOption);
+            }
+
+            parcelSelect.disabled = false;
+
+        } catch (error) {
+            console.error('Error loading parcels for operation:', error);
+            parcelSelect.innerHTML = '<option value="">Error loading parcels</option>';
+            showMessage('Error loading parcels', 'error');
+        }
+    }
+    
+    // Helper function to get parcels already assigned to an operation
+    async function getAssignedParcelsForOperation(operationId) {
+        try {
+            // This would need to be implemented in the backend if not already available
+            // For now, return empty array
+            return [];
+        } catch (error) {
+            console.error('Error getting assigned parcels:', error);
+            return [];
+        }
+    }
             }
 
             // Now get all parcels that belong to the same worksheet
