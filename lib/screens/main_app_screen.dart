@@ -42,7 +42,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     // If the user is logged in but roles are not available (e.g., app restart),
     // then try to load them from storage or fetch them from the server.
-    if (widget.isLoggedIn && (_displayRoles == null || _displayRoles!.isEmpty)) {
+    if (widget.isLoggedIn &&
+        (_displayRoles == null || _displayRoles!.isEmpty)) {
       _loadAndFetchRoles();
     }
   }
@@ -52,7 +53,6 @@ class _MainAppScreenState extends State<MainAppScreen> {
     await _loadRolesFromStorage(); // Try to load from storage for a quick UI update
     await _fetchUserRoles(); // Fetch from server to get the latest roles
   }
-
 
   /// Load roles from secure storage as fallback
   Future<void> _loadRolesFromStorage() async {
@@ -79,7 +79,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
       return;
     }
 
-    final Uri userDetailsUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/account/details/${widget.username}');
+    final Uri userDetailsUrl = Uri.parse(
+      'https://trailblaze-460312.appspot.com/rest/account/details/${widget.username}',
+    );
 
     try {
       final response = await http.get(
@@ -95,17 +97,19 @@ class _MainAppScreenState extends State<MainAppScreen> {
         if (!mounted) return;
         final Map<String, dynamic> userData = jsonDecode(response.body);
         print('User data from backend: $userData'); // Debug print
-        
+
         setState(() {
           _displayRoles = (userData['roles'] as List<dynamic>?)?.cast<String>();
           print('Roles set in state: $_displayRoles'); // Debug print
-          
+
           if (_displayRoles == null || _displayRoles!.isEmpty) {
             print('User roles not found or empty in user details response.');
           }
         });
       } else {
-        print('Failed to fetch user roles: ${response.statusCode} - ${response.body}');
+        print(
+          'Failed to fetch user roles: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       print('Error fetching user roles: $e');
@@ -114,7 +118,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
   Future<void> _logout() async {
     if (widget.jwtToken != null) {
-      final Uri logoutUrl = Uri.parse('https://trailblaze-460312.appspot.com/rest/logout/jwt');
+      final Uri logoutUrl = Uri.parse(
+        'https://trailblaze-460312.appspot.com/rest/logout/jwt',
+      );
 
       try {
         final response = await http.post(
@@ -137,7 +143,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
 
     await _storage.delete(key: 'jwtToken');
     await _storage.delete(key: 'username');
-    await _storage.delete(key: 'userRoles'); // Clear user roles from secure storage
+    await _storage.delete(
+      key: 'userRoles',
+    ); // Clear user roles from secure storage
 
     Navigator.pushAndRemoveUntil(
       context,
@@ -182,7 +190,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Insufficient Permissions'),
-          content: Text('You need the "$requiredRole" role to access this feature.'),
+          content: Text(
+            'You need the "$requiredRole" role to access this feature.',
+          ),
           actions: <Widget>[
             TextButton(
               onPressed: () {
@@ -209,7 +219,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
           },
         ),
         title: Text(
-          widget.isLoggedIn ? 'Hello, ${_displayUsername ?? 'User'}!' : 'Hello Guest!',
+          widget.isLoggedIn
+              ? 'Hello, ${_displayUsername ?? 'User'}!'
+              : 'Hello Guest!',
           style: const TextStyle(fontSize: 18),
           overflow: TextOverflow.ellipsis,
         ),
@@ -220,17 +232,23 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   icon: const Icon(Icons.logout, size: 18),
                   label: const Text('Logout'),
                   style: ElevatedButton.styleFrom(
-                      ? 'You are logged in as ${_displayUsername ?? 'User'}.\n${_buildRoleDescription()}'
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 )
               : ElevatedButton.icon(
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
                     );
                   },
                   icon: const Icon(Icons.login, size: 18),
@@ -238,8 +256,13 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 ),
           const SizedBox(width: 10),
@@ -251,15 +274,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
           padding: EdgeInsets.zero,
           children: <Widget>[
             DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Color(0xFF4F695B),
-              ),
+              decoration: const BoxDecoration(color: Color(0xFF4F695B)),
               child: Text(
-                widget.isLoggedIn ? 'Welcome, ${_displayUsername ?? 'User'}' : 'Guest Mode',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
+                widget.isLoggedIn
+                    ? 'Welcome, ${_displayUsername ?? 'User'}'
+                    : 'Guest Mode',
+                style: const TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
             ListTile(
@@ -267,7 +287,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('User Details'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
+                if (widget.isLoggedIn &&
+                    widget.username != null &&
+                    widget.jwtToken != null) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -287,9 +309,11 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Field Operations'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
+                if (widget.isLoggedIn &&
+                    widget.username != null &&
+                    widget.jwtToken != null) {
                   final roleManager = RoleManager(_displayRoles ?? []);
-                  
+
                   // Check if user has PO role for field operations
                   if (roleManager.isPo) {
                     Navigator.push(
@@ -303,9 +327,15 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     );
                   } else if (roleManager.isPrbo || roleManager.isSdvbo) {
                     // For PRBO/SDVBO users, show a message or redirect to appropriate screen
-                    _showRoleRequiredDialog(context, 'This section is for Production Operators (PO). You have management access.');
+                    _showRoleRequiredDialog(
+                      context,
+                      'This section is for Production Operators (PO). You have management access.',
+                    );
                   } else {
-                    _showRoleRequiredDialog(context, 'PO (Production Operator)');
+                    _showRoleRequiredDialog(
+                      context,
+                      'PO (Production Operator)',
+                    );
                   }
                 } else {
                   _showGuestLoginDialog(context);
@@ -333,10 +363,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Events'),
               onTap: () {
                 Navigator.pop(context);
-                print('Checking Events access - isLoggedIn: ${widget.isLoggedIn}, roles: $_displayRoles'); // Debug print
-                
-                if (widget.isLoggedIn && 
-                    widget.username != null && 
+                print(
+                  'Checking Events access - isLoggedIn: ${widget.isLoggedIn}, roles: $_displayRoles',
+                ); // Debug print
+
+                if (widget.isLoggedIn &&
+                    widget.username != null &&
                     widget.jwtToken != null &&
                     (_displayRoles?.contains('RU') == true)) {
                   Navigator.push(
@@ -353,18 +385,20 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   if (!widget.isLoggedIn) {
                     _showGuestLoginDialog(context);
                   } else {
-                    print('Access denied - Current roles: $_displayRoles, Required: RU'); // Debug print
+                    print(
+                      'Access denied - Current roles: $_displayRoles, Required: RU',
+                    ); // Debug print
                     _showRoleRequiredDialog(context, 'RU');
                   }
                 }
               },
             ),
-            
+
             // Add a divider and admin section if user has management roles
-            if (_displayRoles != null && 
-                (_displayRoles!.contains('PRBO') || 
-                 _displayRoles!.contains('SDVBO') || 
-                 _displayRoles!.contains('SYSADMIN'))) ...[
+            if (_displayRoles != null &&
+                (_displayRoles!.contains('PRBO') ||
+                    _displayRoles!.contains('SDVBO') ||
+                    _displayRoles!.contains('SYSADMIN'))) ...[
               const Divider(),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -400,10 +434,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset(
-              'assets/images/logo.png',
-              height: 200,
-            ),
+            Image.asset('assets/images/logo.png', height: 200),
             const SizedBox(height: 20),
             Text(
               'Welcome to the TrailBlaze App!',
@@ -430,8 +461,13 @@ class _MainAppScreenState extends State<MainAppScreen> {
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF4F695B),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
           ],
