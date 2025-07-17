@@ -187,6 +187,7 @@ class _PoExecutionSheetDetailsScreenState
                 parcelOperation: parcelOp,
                 jwtToken: widget.jwtToken,
                 username: widget.username,
+                workSheetId: widget.sheet.associatedWorkSheetId,
               ),
             ),
           ).then((_) => _refreshData());

@@ -29,4 +29,5 @@ class ParcelOperationExecution {
       assignedOperatorId: json['assignedOperatorId'],
     );
   }
+  
 }

@@ -1,8 +1,8 @@
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:proj4dart/proj4dart.dart' as proj4;
 import '../models/execution_sheet.dart';
-import '../models/operation_execution.dart';
-import '../models/parcel_operation_execution.dart';
 import '../models/activity.dart';
 
 class ExecutionService {
@@ -30,16 +30,18 @@ class ExecutionService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        List<ExecutionSheet> sheets = data.map((json) => ExecutionSheet.fromJson(json)).toList();
-        
+        List<ExecutionSheet> sheets =
+            data.map((json) => ExecutionSheet.fromJson(json)).toList();
+
         if (onlyAssigned) {
           // Filter will be applied after checking assignments in the UI layer
           return sheets;
         }
-        
+
         return sheets;
       } else {
-        throw Exception('Failed to load execution sheets: ${response.statusCode}');
+        throw Exception(
+            'Failed to load execution sheets: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error fetching execution sheets: $e');
@@ -63,7 +65,8 @@ class ExecutionService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to load execution sheet details: ${response.statusCode}');
+        throw Exception(
+            'Failed to load execution sheet details: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error fetching execution sheet details: $e');
@@ -178,5 +181,83 @@ class ExecutionService {
     } catch (e) {
       throw Exception('Error fetching activities: $e');
     }
+  }
+
+  /// NEW METHOD: Fetch parcel geometry for the live tracking map
+  static Future<List<LatLng>> fetchParcelGeometry({
+    required String jwtToken,
+    required String worksheetId,
+    required String parcelId,
+  }) async {
+    // This endpoint fetches the details of a specific worksheet
+    final Uri url = Uri.parse('$baseUrl/fe/$worksheetId/detail');
+    final Map<String, String> headers = {
+      'Content-Type': 'application/json; charset=UTF-8',
+      'Authorization': 'Bearer $jwtToken',
+    };
+
+    try {
+      final response = await http.get(url, headers: headers);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> worksheetDetail = jsonDecode(response.body);
+        // The backend response nests parcels under the 'parcels' key
+        final List<dynamic> parcelsJson = worksheetDetail['parcels'] ?? [];
+
+        // Find the specific parcel by its ID
+        final parcelJson = parcelsJson.firstWhere(
+          (p) => p['polygonId'].toString() == parcelId,
+          orElse: () => null,
+        );
+
+        if (parcelJson != null) {
+          // Extract and convert the geometry
+          return _convertGeometryToLatLng(parcelJson['geometry']);
+        } else {
+          throw Exception(
+              'Parcel with ID $parcelId not found in worksheet $worksheetId');
+        }
+      } else {
+        throw Exception(
+            'Failed to fetch worksheet details: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching parcel geometry: $e');
+    }
+  }
+
+  /// NEW HELPER METHOD: Converts geometry coordinates to LatLng points
+  static List<LatLng> _convertGeometryToLatLng(
+      Map<String, dynamic>? geometry) {
+    if (geometry == null || geometry['coordinates'] == null) {
+      return [];
+    }
+
+    // Define the source and destination projections
+    final proj4.Projection portugueseProjection = proj4.Projection.add(
+        'EPSG:3763',
+        '+proj=tmerc +lat_0=39.66825833333333 +lon_0=-8.133108333333334 '
+        '+k=1 +x_0=0 +y_0=0 +ellps=GRS80 +units=m +no_defs');
+    final proj4.Projection wgs84Projection = proj4.Projection.get('EPSG:4326')!;
+
+    List<List<dynamic>> rings =
+        List<List<dynamic>>.from(geometry['coordinates']);
+    List<LatLng> latLngPoints = [];
+
+    if (rings.isNotEmpty) {
+      // A polygon is defined by rings, we use the first (exterior) ring
+      List<dynamic> exteriorRing = rings[0];
+      for (var coord in exteriorRing) {
+        if (coord is List && coord.length >= 2) {
+          var point =
+              proj4.Point(x: coord[0].toDouble(), y: coord[1].toDouble());
+          // Transform the point from the Portuguese projection to WGS84 (used by Google Maps)
+          var wgs84Point =
+              portugueseProjection.transform(wgs84Projection, point);
+          latLngPoints.add(LatLng(wgs84Point.y, wgs84Point.x));
+        }
+      }
+    }
+    return latLngPoints;
   }
 }

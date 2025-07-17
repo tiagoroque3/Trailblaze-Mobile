@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math' as math;
 import '../models/parcel.dart';
-
 import 'package:proj4dart/proj4dart.dart';
+import '../utils/role_manager.dart';
 
 
 class ParcelService {
@@ -318,7 +318,6 @@ class ParcelService {
       color: _getColorForWorksheet(worksheetId),
     );
   }
-
 
   /// Converte coordenadas do sistema português (EPSG:3763 - ETRS89 / Portugal TM06) para WGS84
   /// Esta é uma conversão aproximada - para maior precisão, seria necessária uma biblioteca de projeção

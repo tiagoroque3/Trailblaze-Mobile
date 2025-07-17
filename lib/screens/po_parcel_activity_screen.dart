@@ -4,18 +4,21 @@ import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/models/activity.dart';
 import 'package:trailblaze_app/services/execution_service.dart';
 import 'package:trailblaze_app/screens/po_activity_management_screen.dart';
+import 'package:trailblaze_app/screens/po_live_tracking_map_screen.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 
 class PoParcelActivityScreen extends StatefulWidget {
   final ParcelOperationExecution parcelOperation;
   final String jwtToken;
   final String username;
+  final String workSheetId;
 
   const PoParcelActivityScreen({
     super.key,
     required this.parcelOperation,
     required this.jwtToken,
     required this.username,
+    required this.workSheetId,
   });
 
   @override
@@ -37,19 +40,17 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
       _myActivities = widget.parcelOperation.activities
           .where((activity) => activity.operatorId == widget.username)
           .toList();
-      // Sort by start time, most recent first
       _myActivities.sort((a, b) => b.startTime.compareTo(a.startTime));
     });
   }
 
   Future<void> _startNewActivity() async {
-    // Confirmation dialog before starting
     final confirm = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
               title: const Text('Start New Activity'),
               content: const Text(
-                  'Are you sure you want to start a new activity for this parcel?'),
+                  'Are you sure you want to start a new activity?'),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(false),
@@ -76,9 +77,8 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
         parcelOperationExecutionId: widget.parcelOperation.id,
         jwtToken: widget.jwtToken,
       );
-
       _showSnackBar('Activity started successfully.');
-      Navigator.of(context).pop(true); // Return to refresh previous screen
+      Navigator.of(context).pop(true);
     } catch (e) {
       _showSnackBar('Failed to start activity: $e', isError: true);
     } finally {
@@ -101,9 +101,8 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
         activityId: activity.id,
         jwtToken: widget.jwtToken,
       );
-
       _showSnackBar('Activity stopped successfully.');
-      Navigator.of(context).pop(true); // Return to refresh previous screen
+      Navigator.of(context).pop(true);
     } catch (e) {
       _showSnackBar('Failed to stop activity: $e', isError: true);
     } finally {
@@ -127,9 +126,22 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
       ),
     ).then((result) {
       if (result == true) {
-        Navigator.of(context).pop(true); // Refresh previous screen
+        Navigator.of(context).pop(true);
       }
     });
+  }
+
+  void _navigateToLiveTrackingMap(Activity activity) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PoLiveTrackingMapScreen(
+          parcelOperation: widget.parcelOperation,
+          jwtToken: widget.jwtToken,
+          assignedWorkSheetId: widget.workSheetId,
+        ),
+      ),
+    );
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -159,7 +171,6 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Header info
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16.0),
@@ -200,7 +211,6 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      // **MODIFICATION**: Replaced info bar with a button
                       if (ongoingActivity == null)
                         SizedBox(
                           width: double.infinity,
@@ -211,15 +221,14 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryGreen,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
                         ),
                     ],
                   ),
                 ),
-
-                // Activities list
                 Expanded(
                   child: _myActivities.isEmpty
                       ? _buildEmptyState()
@@ -276,71 +285,83 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _navigateToActivityManagement(activity),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        DateFormat('MMM dd, yyyy').format(activity.startTime),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primaryGreen,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${DateFormat('HH:mm').format(activity.startTime)} - ${isOngoing ? 'Ongoing' : DateFormat('HH:mm').format(activity.endTime!)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _buildActivityStatusChip(isOngoing),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (isOngoing)
               Row(
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          DateFormat('MMM dd, yyyy').format(activity.startTime),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryGreen,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${DateFormat('HH:mm').format(activity.startTime)} - ${isOngoing ? 'Ongoing' : DateFormat('HH:mm').format(activity.endTime!)}',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
+                    child: ElevatedButton.icon(
+                      onPressed:
+                          _isLoading ? null : () => _stopActivity(activity),
+                      icon: const Icon(Icons.stop_circle_outlined, size: 20),
+                      label: const Text('Stop'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ),
-                  _buildActivityStatusChip(isOngoing),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _navigateToLiveTrackingMap(activity),
+                      icon: const Icon(Icons.map_outlined, size: 20),
+                      label: const Text('Track'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primaryGreen,
+                        side: const BorderSide(color: AppColors.primaryGreen),
+                      ),
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              if (isOngoing)
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isLoading ? null : () => _stopActivity(activity),
-                    icon: const Icon(Icons.stop_circle_outlined, size: 20),
-                    label: const Text('Stop Activity'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                    ),
+            if (!isOngoing)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _navigateToActivityManagement(activity),
+                  icon: const Icon(Icons.edit_note, size: 20),
+                  label: const Text('View & Add Info'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryGreen,
+                    side: const BorderSide(color: AppColors.primaryGreen),
                   ),
                 ),
-              if (!isOngoing)
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _navigateToActivityManagement(activity),
-                    icon: const Icon(Icons.edit_note, size: 20),
-                    label: const Text('View & Add Info'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primaryGreen,
-                      side: const BorderSide(color: AppColors.primaryGreen),
-                    ),
-                  ),
-                )
-            ],
-          ),
+              )
+          ],
         ),
       ),
     );
