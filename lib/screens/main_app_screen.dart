@@ -5,6 +5,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
 import 'package:trailblaze_app/screens/po_execution_dashboard.dart';
+import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
 import 'package:trailblaze_app/utils/role_manager.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
 import 'package:trailblaze_app/screens/events_screen.dart';
@@ -304,18 +305,16 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 }
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.build),
-              title: const Text('Field Operations'),
-              onTap: () {
-                Navigator.pop(context);
-                if (widget.isLoggedIn &&
-                    widget.username != null &&
-                    widget.jwtToken != null) {
-                  final roleManager = RoleManager(_displayRoles ?? []);
-
-                  // Check if user has PO role for field operations
-                  if (roleManager.isPo) {
+            // Field Operations - only for PO role
+            if (_displayRoles != null && _displayRoles!.contains('PO'))
+              ListTile(
+                leading: const Icon(Icons.build),
+                title: const Text('Field Operations'),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (widget.isLoggedIn &&
+                      widget.username != null &&
+                      widget.jwtToken != null) {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -325,23 +324,37 @@ class _MainAppScreenState extends State<MainAppScreen> {
                         ),
                       ),
                     );
-                  } else if (roleManager.isPrbo || roleManager.isSdvbo) {
-                    // For PRBO/SDVBO users, show a message or redirect to appropriate screen
-                    _showRoleRequiredDialog(
+                  } else {
+                    _showGuestLoginDialog(context);
+                  }
+                },
+              ),
+
+            // Execution Sheets - only for PRBO role
+            if (_displayRoles != null && _displayRoles!.contains('PRBO'))
+              ListTile(
+                leading: const Icon(Icons.assignment),
+                title: const Text('Execution Sheets'),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (widget.isLoggedIn &&
+                      widget.username != null &&
+                      widget.jwtToken != null) {
+                    Navigator.push(
                       context,
-                      'This section is for Production Operators (PO). You have management access.',
+                      MaterialPageRoute(
+                        builder: (context) => ExecutionSheetsScreen(
+                          username: widget.username!,
+                          jwtToken: widget.jwtToken!,
+                          roles: _displayRoles ?? [],
+                        ),
+                      ),
                     );
                   } else {
-                    _showRoleRequiredDialog(
-                      context,
-                      'PO (Production Operator)',
-                    );
+                    _showGuestLoginDialog(context);
                   }
-                } else {
-                  _showGuestLoginDialog(context);
-                }
-              },
-            ),
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.map),
               title: const Text('View Map'),
@@ -444,7 +457,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
             const SizedBox(height: 10),
             Text(
               widget.isLoggedIn
-                  ? 'You are logged in as ${_displayUsername ?? 'User'}.\nRoles: ${_displayRoles?.join(', ') ?? 'No roles assigned'}'
+                  ? 'You are logged in as ${_displayUsername ?? 'User'}.\n${_buildRoleDescription()}'
                   : 'You are in guest mode. Some features may be limited.',
               style: Theme.of(context).textTheme.bodyMedium,
               textAlign: TextAlign.center,
