@@ -78,6 +78,31 @@ class _PrboExecutionSheetDetailsScreenState
   }
 
   void _navigateToAssignParcel() async {
+    // Coletar IDs das parcelas já atribuídas
+    List<String> assignedParcelIds = [];
+
+    try {
+      final data = await PrboExecutionService.fetchExecutionSheetDetails(
+        sheetId: widget.sheet.id,
+        jwtToken: widget.jwtToken,
+      );
+
+      final operationsData = data['operations'] ?? [];
+      for (var opData in operationsData) {
+        final parcelsData = opData['parcels'] ?? [];
+        for (var parcelData in parcelsData) {
+          final parcelExecution = parcelData['parcelExecution'];
+          final parcelId = parcelExecution['parcelId']?.toString();
+          if (parcelId != null && !assignedParcelIds.contains(parcelId)) {
+            assignedParcelIds.add(parcelId);
+          }
+        }
+      }
+    } catch (e) {
+      // Se houver erro ao carregar, continua sem filtrar
+      print('Error loading assigned parcels: $e');
+    }
+
     final result = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
@@ -85,6 +110,7 @@ class _PrboExecutionSheetDetailsScreenState
           executionSheet: widget.sheet,
           jwtToken: widget.jwtToken,
           username: widget.username,
+          assignedParcelIds: assignedParcelIds,
         ),
       ),
     );

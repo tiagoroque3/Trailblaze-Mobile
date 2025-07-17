@@ -7,12 +7,14 @@ class PrboAssignParcelScreen extends StatefulWidget {
   final ExecutionSheet executionSheet;
   final String jwtToken;
   final String username;
+  final List<String>? assignedParcelIds; // IDs das parcelas já atribuídas
 
   const PrboAssignParcelScreen({
     super.key,
     required this.executionSheet,
     required this.jwtToken,
     required this.username,
+    this.assignedParcelIds,
   });
 
   @override
@@ -99,8 +101,20 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
         jwtToken: widget.jwtToken,
       );
 
+      // Filtrar parcelas já atribuídas
+      List<Map<String, dynamic>> availableParcels = parcels;
+      if (widget.assignedParcelIds != null &&
+          widget.assignedParcelIds!.isNotEmpty) {
+        availableParcels = parcels.where((parcel) {
+          final parcelId =
+              parcel['id']?.toString() ?? parcel['parcelId']?.toString();
+          return parcelId != null &&
+              !widget.assignedParcelIds!.contains(parcelId);
+        }).toList();
+      }
+
       setState(() {
-        _parcels = parcels;
+        _parcels = availableParcels;
         _parcelsLoading = false;
       });
     } catch (e) {
@@ -344,9 +358,12 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                             border: Border.all(color: Colors.orange.shade200),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            'No parcels available in this worksheet',
-                            style: TextStyle(color: Colors.orange),
+                          child: Text(
+                            widget.assignedParcelIds != null &&
+                                    widget.assignedParcelIds!.isNotEmpty
+                                ? 'No unassigned parcels available in this worksheet'
+                                : 'No parcels available in this worksheet',
+                            style: const TextStyle(color: Colors.orange),
                           ),
                         )
                       else
@@ -385,10 +402,28 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                           },
                         ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Select an existing parcel from the worksheet',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      Text(
+                        widget.assignedParcelIds != null &&
+                                widget.assignedParcelIds!.isNotEmpty
+                            ? 'Select an unassigned parcel from the worksheet'
+                            : 'Select an existing parcel from the worksheet',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey,
+                        ),
                       ),
+                      if (widget.assignedParcelIds != null &&
+                          widget.assignedParcelIds!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          '${widget.assignedParcelIds!.length} parcel(s) already assigned',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
