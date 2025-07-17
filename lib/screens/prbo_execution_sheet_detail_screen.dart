@@ -439,8 +439,8 @@ class _PrboExecutionSheetDetailsScreenState
                     ),
                   ),
                   _buildOperationStatusChip(
-                    'ACTIVE',
-                  ), // Default status since state property doesn't exist
+                    parcel.id,
+                  ), // Use parcel ID as status for now
                 ],
               ),
 
@@ -504,39 +504,18 @@ class _PrboExecutionSheetDetailsScreenState
   }
 
   Widget _buildOperationStatusChip(String status) {
-    Color backgroundColor;
-    Color textColor;
-
-    switch (status.toUpperCase()) {
-      case 'PENDING':
-        backgroundColor = Colors.orange.shade100;
-        textColor = Colors.orange.shade800;
-        break;
-      case 'IN_PROGRESS':
-        backgroundColor = Colors.blue.shade100;
-        textColor = Colors.blue.shade800;
-        break;
-      case 'COMPLETED':
-        backgroundColor = Colors.green.shade100;
-        textColor = Colors.green.shade800;
-        break;
-      default:
-        backgroundColor = Colors.grey.shade100;
-        textColor = Colors.grey.shade800;
-    }
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: Colors.blue.shade100,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        status,
+        'Active',
         style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: textColor,
+          color: Colors.blue.shade800,
         ),
       ),
     );

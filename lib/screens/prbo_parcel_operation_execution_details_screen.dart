@@ -6,11 +6,13 @@ import 'package:trailblaze_app/utils/app_constants.dart';
 class ParcelOperationExecutionDetailsScreen extends StatelessWidget {
   final ParcelOperationExecution parcelOperation;
   final String jwtToken;
+  final String username;
 
   const ParcelOperationExecutionDetailsScreen({
     super.key,
     required this.parcelOperation,
     required this.jwtToken,
+    required this.username,
   });
 
   @override
@@ -18,7 +20,8 @@ class ParcelOperationExecutionDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-            'Parcel: ${parcelOperation.parcelId} - Op: ${parcelOperation.operationExecution?.name}'),
+          'Parcel: ${parcelOperation.parcelId} - Op: ${parcelOperation.operationExecution?.name}',
+        ),
         backgroundColor: AppColors.primaryGreen,
       ),
       body: ListView.builder(
@@ -30,15 +33,18 @@ class ParcelOperationExecutionDetailsScreen extends StatelessWidget {
             child: ListTile(
               title: Text('Activity by ${activity.operatorId}'),
               subtitle: Text(
-                  'Started: ${activity.startTime.toLocal()}\nEnded: ${activity.endTime?.toLocal() ?? 'Ongoing'}'),
+                'Started: ${activity.startTime.toLocal()}\nEnded: ${activity.endTime?.toLocal() ?? 'Ongoing'}',
+              ),
               trailing: const Icon(Icons.arrow_forward_ios),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ActivityDetailsScreen(
+                    builder: (context) => PrboActivityDetailsScreen(
                       activity: activity,
                       jwtToken: jwtToken,
+                      username: username,
+                      canEdit: true, // PRBO can edit activities
                     ),
                   ),
                 );
