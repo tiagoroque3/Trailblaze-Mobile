@@ -82,6 +82,29 @@ class EventService {
     }
   }
 
+  /// Unregister from an event (RU only)
+  static Future<bool> unregisterFromEvent({
+    required String eventId,
+    required String jwtToken,
+  }) async {
+    try {
+      final Uri url = Uri.parse('$baseUrl/events/$eventId/register');
+      
+      final response = await http.delete(
+        url,
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer $jwtToken',
+        },
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('Error unregistering from event: $e');
+      return false;
+    }
+  }
+
   /// Get a specific event by ID
   static Future<Event?> getEvent({required String eventId}) async {
     try {

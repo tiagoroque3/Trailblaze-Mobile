@@ -83,6 +83,32 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
+  Future<void> _unregisterFromEvent(Event event) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final success = await EventService.unregisterFromEvent(
+        eventId: event.id,
+        jwtToken: widget.jwtToken,
+      );
+
+      if (success) {
+        _showSnackBar('Successfully unregistered from ${event.title}');
+        await _loadEvents(); // Refresh the events
+      } else {
+        _showSnackBar('Failed to unregister from event', isError: true);
+      }
+    } catch (e) {
+      _showSnackBar('Error unregistering from event: $e', isError: true);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -199,6 +225,20 @@ class _EventsScreenState extends State<EventsScreen> {
                 style: TextStyle(fontSize: 18, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
+              // Show unregister button in My Events tab
+              if (!_showingAllEvents)
+                ElevatedButton(
+                  onPressed: _isLoading ? null : () => _showUnregisterDialog(event),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                  child: const Text('Unregister'),
+                ),
             ],
           ),
         ),
