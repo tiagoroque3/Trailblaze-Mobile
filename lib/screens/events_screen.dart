@@ -224,6 +224,20 @@ class _EventsScreenState extends State<EventsScreen> {
                   ),
                 ),
               ),
+            // Show unregister button in My Events tab
+            if (!_showingAllEvents)
+              ElevatedButton(
+                onPressed: _isLoading ? null : () => _showUnregisterDialog(event),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text('Unregister'),
+              ),
           ],
         ),
       ),

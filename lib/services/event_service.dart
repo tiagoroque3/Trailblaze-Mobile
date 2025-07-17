@@ -98,7 +98,12 @@ class EventService {
         },
       );
 
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        return true;
+      } else {
+        print('Error unregistering from event: ${response.statusCode} - ${response.body}');
+        return false;
+      }
     } catch (e) {
       print('Error unregistering from event: $e');
       return false;
