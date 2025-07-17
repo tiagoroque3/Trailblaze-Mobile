@@ -26,7 +26,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
   bool _isLoading = false;
   List<Map<String, dynamic>> _operations = [];
   List<Map<String, dynamic>> _parcels = [];
-  
+
   String? _selectedOperationId;
   String? _selectedParcelId;
   bool _operationsLoading = true;
@@ -50,20 +50,22 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
     });
 
     try {
-      final sheetDetails = await PrboExecutionService.fetchExecutionSheetDetails(
-        sheetId: widget.executionSheet.id,
-        jwtToken: widget.jwtToken,
-      );
+      final sheetDetails =
+          await PrboExecutionService.fetchExecutionSheetDetails(
+            sheetId: widget.executionSheet.id,
+            jwtToken: widget.jwtToken,
+          );
 
       final operations = sheetDetails['operations'] as List<dynamic>? ?? [];
-      
+
       setState(() {
         _operations = operations.map((op) {
           final opExec = op['operationExecution'];
           return {
             'operationId': opExec['operationId'],
             'executionId': opExec['id'],
-            'displayName': 'Operation ${opExec['operationId']} (Execution ID: ${opExec['id']})',
+            'displayName':
+                'Operation ${opExec['operationId']} (Execution ID: ${opExec['id']})',
           };
         }).toList();
         _operationsLoading = false;
@@ -72,7 +74,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
       setState(() {
         _operationsLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -105,7 +107,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
       setState(() {
         _parcelsLoading = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -145,7 +147,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
           {
             'parcelId': _selectedParcelId!,
             'area': double.parse(_areaController.text),
-          }
+          },
         ],
       );
 
@@ -200,22 +202,25 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                     children: [
                       Text(
                         'Execution Sheet',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryGreen,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primaryGreen,
+                            ),
                       ),
                       const SizedBox(height: 8),
                       Text('Title: ${widget.executionSheet.title}'),
                       const SizedBox(height: 4),
                       Text('ID: ${widget.executionSheet.id}'),
                       const SizedBox(height: 4),
-                      Text('Worksheet ID: ${widget.executionSheet.associatedWorkSheetId}'),
+                      Text(
+                        'Worksheet ID: ${widget.executionSheet.associatedWorkSheetId}',
+                      ),
                     ],
                   ),
                 ),
               ),
-              
+
               const SizedBox(height: 20),
 
               // Operation Selection
@@ -228,9 +233,8 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                     children: [
                       Text(
                         'Select Operation *',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       if (_operationsLoading)
@@ -287,10 +291,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                       const SizedBox(height: 8),
                       const Text(
                         'Select an existing operation from this execution sheet',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -309,9 +310,8 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                     children: [
                       Text(
                         'Select Parcel *',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       if (_parcelsLoading)
@@ -357,13 +357,19 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                             hintText: 'Select a parcel',
                           ),
                           items: _parcels.map((parcel) {
-                            final parcelId = parcel['id']?.toString() ?? parcel['parcelId']?.toString() ?? 'Unknown';
+                            final parcelId =
+                                parcel['id']?.toString() ??
+                                parcel['parcelId']?.toString() ??
+                                'Unknown';
                             final aigp = parcel['aigp']?.toString() ?? 'N/A';
-                            final ruralPropertyId = parcel['ruralPropertyId']?.toString() ?? 'N/A';
-                            
+                            final ruralPropertyId =
+                                parcel['ruralPropertyId']?.toString() ?? 'N/A';
+
                             return DropdownMenuItem<String>(
                               value: parcelId,
-                              child: Text('Parcel $parcelId - $aigp ($ruralPropertyId)'),
+                              child: Text(
+                                'Parcel $parcelId - $aigp ($ruralPropertyId)',
+                              ),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -381,10 +387,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                       const SizedBox(height: 8),
                       const Text(
                         'Select an existing parcel from the worksheet',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -403,14 +406,15 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                     children: [
                       Text(
                         'Expected Area (ha) *',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
                         controller: _areaController,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
                         decoration: const InputDecoration(
                           border: OutlineInputBorder(),
                           hintText: 'Enter expected area in hectares',
