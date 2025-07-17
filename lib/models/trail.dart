@@ -1,11 +1,10 @@
+import 'dart:math';
+
 class TrailPoint {
   final double latitude;
   final double longitude;
 
-  TrailPoint({
-    required this.latitude,
-    required this.longitude,
-  });
+  TrailPoint({required this.latitude, required this.longitude});
 
   factory TrailPoint.fromJson(Map<String, dynamic> json) {
     return TrailPoint(
@@ -15,14 +14,14 @@ class TrailPoint {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'latitude': latitude,
-      'longitude': longitude,
-    };
+    return {'latitude': latitude, 'longitude': longitude};
   }
 
   bool isValid() {
-    return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+    return latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180;
   }
 }
 
@@ -54,15 +53,9 @@ class TrailObservation {
   }
 }
 
-enum TrailVisibility {
-  PUBLIC,
-  PRIVATE,
-}
+enum TrailVisibility { PUBLIC, PRIVATE }
 
-enum TrailStatus {
-  ACTIVE,
-  COMPLETED,
-}
+enum TrailStatus { ACTIVE, COMPLETED }
 
 class Trail {
   final String id;
@@ -104,11 +97,13 @@ class Trail {
             )
           : null,
       createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
-      points: (json['points'] as List<dynamic>?)
+      points:
+          (json['points'] as List<dynamic>?)
               ?.map((p) => TrailPoint.fromJson(p as Map<String, dynamic>))
               .toList() ??
           [],
-      observations: (json['observations'] as List<dynamic>?)
+      observations:
+          (json['observations'] as List<dynamic>?)
               ?.map((o) => TrailObservation.fromJson(o as Map<String, dynamic>))
               .toList() ??
           [],
@@ -148,7 +143,7 @@ class Trail {
 
   double get totalDistance {
     if (points.length < 2) return 0.0;
-    
+
     double total = 0.0;
     for (int i = 1; i < points.length; i++) {
       total += _calculateDistance(points[i - 1], points[i]);
@@ -158,16 +153,19 @@ class Trail {
 
   double _calculateDistance(TrailPoint p1, TrailPoint p2) {
     const double earthRadius = 6371000; // metros
-    
-    double lat1Rad = p1.latitude * (3.14159 / 180);
-    double lat2Rad = p2.latitude * (3.14159 / 180);
-    double deltaLatRad = (p2.latitude - p1.latitude) * (3.14159 / 180);
-    double deltaLngRad = (p2.longitude - p1.longitude) * (3.14159 / 180);
 
-    double a = (deltaLatRad / 2).sin() * (deltaLatRad / 2).sin() +
-        lat1Rad.cos() * lat2Rad.cos() *
-        (deltaLngRad / 2).sin() * (deltaLngRad / 2).sin();
-    double c = 2 * (a.sqrt()).atan2((1 - a).sqrt());
+    double lat1Rad = p1.latitude * (pi / 180);
+    double lat2Rad = p2.latitude * (pi / 180);
+    double deltaLatRad = (p2.latitude - p1.latitude) * (pi / 180);
+    double deltaLngRad = (p2.longitude - p1.longitude) * (pi / 180);
+
+    double a =
+        sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
+        cos(lat1Rad) *
+            cos(lat2Rad) *
+            sin(deltaLngRad / 2) *
+            sin(deltaLngRad / 2);
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
     return earthRadius * c;
   }
