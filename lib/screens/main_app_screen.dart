@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
 import 'package:trailblaze_app/screens/user_details_screen.dart';
-import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
+import 'package:trailblaze_app/screens/po_execution_dashboard.dart';
+import 'package:trailblaze_app/utils/role_manager.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
 import 'package:trailblaze_app/screens/events_screen.dart';
 
@@ -219,7 +220,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   icon: const Icon(Icons.logout, size: 18),
                   label: const Text('Logout'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.redAccent,
+                      ? 'You are logged in as ${_displayUsername ?? 'User'}.\n${_buildRoleDescription()}'
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -283,28 +284,31 @@ class _MainAppScreenState extends State<MainAppScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.build),
-              title: const Text('Execution Sheets'),
+              title: const Text('Field Operations'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && 
-                    widget.username != null && 
-                    widget.jwtToken != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ExecutionSheetsScreen(
-                        username: widget.username!,
-                        jwtToken: widget.jwtToken!,
-                        roles: _displayRoles ?? [],
+                if (widget.isLoggedIn && widget.username != null && widget.jwtToken != null) {
+                  final roleManager = RoleManager(_displayRoles ?? []);
+                  
+                  // Check if user has PO role for field operations
+                  if (roleManager.isPo) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PoExecutionDashboard(
+                          username: widget.username!,
+                          jwtToken: widget.jwtToken!,
+                        ),
                       ),
-                    ),
-                  );
-                } else {
-                  if (!widget.isLoggedIn) {
-                    _showGuestLoginDialog(context);
+                    );
+                  } else if (roleManager.isPrbo || roleManager.isSdvbo) {
+                    // For PRBO/SDVBO users, show a message or redirect to appropriate screen
+                    _showRoleRequiredDialog(context, 'This section is for Production Operators (PO). You have management access.');
                   } else {
-                    _showRoleRequiredDialog(context, 'PO');
+                    _showRoleRequiredDialog(context, 'PO (Production Operator)');
                   }
+                } else {
+                  _showGuestLoginDialog(context);
                 }
               },
             ),
@@ -326,7 +330,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.event),
-              title: const Text('Events (RU)'),
+              title: const Text('Events'),
               onTap: () {
                 Navigator.pop(context);
                 print('Checking Events access - isLoggedIn: ${widget.isLoggedIn}, roles: $_displayRoles'); // Debug print
@@ -355,6 +359,40 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 }
               },
             ),
+            
+            // Add a divider and admin section if user has management roles
+            if (_displayRoles != null && 
+                (_displayRoles!.contains('PRBO') || 
+                 _displayRoles!.contains('SDVBO') || 
+                 _displayRoles!.contains('SYSADMIN'))) ...[
+              const Divider(),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Text(
+                  'Management',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.admin_panel_settings),
+                title: const Text('Execution Management'),
+                onTap: () {
+                  Navigator.pop(context);
+                  // This would navigate to the PRBO/SDVBO execution management screen
+                  // For now, show a placeholder message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Management interface coming soon'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -400,5 +438,36 @@ class _MainAppScreenState extends State<MainAppScreen> {
         ),
       ),
     );
+  }
+
+  String _buildRoleDescription() {
+    if (_displayRoles == null || _displayRoles!.isEmpty) {
+      return 'No roles assigned';
+    }
+
+    final roleManager = RoleManager(_displayRoles!);
+    List<String> descriptions = [];
+
+    if (roleManager.isPo) {
+      descriptions.add('Field Operator');
+    }
+    if (roleManager.isPrbo) {
+      descriptions.add('Project Manager');
+    }
+    if (roleManager.isSdvbo) {
+      descriptions.add('System Manager');
+    }
+    if (_displayRoles!.contains('RU')) {
+      descriptions.add('Event Participant');
+    }
+    if (_displayRoles!.contains('SYSADMIN')) {
+      descriptions.add('System Administrator');
+    }
+
+    if (descriptions.isEmpty) {
+      return 'Roles: ${_displayRoles!.join(', ')}';
+    }
+
+    return descriptions.join(' • ');
   }
 }
