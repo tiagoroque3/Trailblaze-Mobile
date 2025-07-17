@@ -59,7 +59,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
             sheetId: sheet.id,
             jwtToken: widget.jwtToken,
           );
-          
+
           // Check if user has any assigned activities
           bool hasAssignedActivities = _checkUserAssignments(details);
           sheet.isAssignedToCurrentUser = hasAssignedActivities;
@@ -85,7 +85,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
 
   bool _checkUserAssignments(Map<String, dynamic> details) {
     final List<dynamic> operations = details['operations'] ?? [];
-    
+
     for (var opData in operations) {
       final List<dynamic> parcels = opData['parcels'] ?? [];
       for (var parcelData in parcels) {
@@ -165,7 +165,10 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
                         decoration: const InputDecoration(
                           labelText: 'Filter by Status',
                           border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
                         ),
                         items: _filterOptions.entries.map((entry) {
                           return DropdownMenuItem<String>(
@@ -189,11 +192,9 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
               ],
             ),
           ),
-          
+
           // Content
-          Expanded(
-            child: _buildContent(),
-          ),
+          Expanded(child: _buildContent()),
         ],
       ),
     );
@@ -202,9 +203,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
   Widget _buildContent() {
     if (_isLoading) {
       return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primaryGreen,
-        ),
+        child: CircularProgressIndicator(color: AppColors.primaryGreen),
       );
     }
 
@@ -213,11 +212,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade300,
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
               'Error loading execution sheets',
@@ -227,9 +222,9 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
             Text(
               _error!,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -257,12 +252,12 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              _showOnlyAssigned 
+              _showOnlyAssigned
                   ? 'No assigned execution sheets found'
                   : 'No execution sheets found',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.grey.shade600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
@@ -270,9 +265,9 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
                   ? 'You don\'t have any assigned activities in the current filter'
                   : 'Try changing the filter or refresh the list',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade500,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
             ),
           ],
         ),
@@ -296,16 +291,14 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => PoExecutionSheetDetailScreen(
+              builder: (context) => PoExecutionSheetDetailsScreen(
                 sheet: sheet,
                 jwtToken: widget.jwtToken,
                 username: widget.username,
@@ -336,23 +329,20 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
               const SizedBox(height: 8),
               Text(
                 'Worksheet: ${sheet.associatedWorkSheetId}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 4),
               Text(
                 'Assigned to: ${sheet.associatedUser}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               if (sheet.isAssignedToCurrentUser) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.primaryGreen.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(4),
@@ -378,10 +368,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
                   const SizedBox(width: 4),
                   Text(
                     'Tap to view details',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
@@ -395,7 +382,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
   Widget _buildStatusChip(String status) {
     Color backgroundColor;
     Color textColor;
-    
+
     switch (status.toUpperCase()) {
       case 'PENDING':
         backgroundColor = Colors.orange.shade100;
