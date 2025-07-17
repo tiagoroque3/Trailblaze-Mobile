@@ -39,10 +39,9 @@ class _EventsScreenState extends State<EventsScreen> {
     try {
       // Load all events
       final allEvents = await EventService.fetchAllEvents(jwtToken: widget.jwtToken);
-      
       // Load user's registered events
       final myEvents = await EventService.fetchMyEvents(jwtToken: widget.jwtToken);
-      
+
       setState(() {
         _allEvents = allEvents;
         _myEvents = myEvents;
@@ -70,7 +69,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
       if (success) {
         _showSnackBar('Successfully registered for ${event.title}');
-        await _loadEvents(); // Refresh the events
+        await _loadEvents();
       } else {
         _showSnackBar('Failed to register for event', isError: true);
       }
@@ -96,7 +95,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
       if (success) {
         _showSnackBar('Successfully unregistered from ${event.title}');
-        await _loadEvents(); // Refresh the events
+        await _loadEvents();
       } else {
         _showSnackBar('Failed to unregister from event', isError: true);
       }
@@ -120,9 +119,7 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel'),
             ),
             TextButton(
@@ -152,7 +149,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
   Widget _buildEventCard(Event event) {
     final isRegistered = _registeredEventIds.contains(event.id);
-    
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -224,7 +221,6 @@ class _EventsScreenState extends State<EventsScreen> {
                   ),
                 ),
               ),
-            // Show unregister button in My Events tab
             if (!_showingAllEvents)
               ElevatedButton(
                 onPressed: _isLoading ? null : () => _showUnregisterDialog(event),
@@ -247,8 +243,7 @@ class _EventsScreenState extends State<EventsScreen> {
   @override
   Widget build(BuildContext context) {
     // Check if user has RU role
-    bool hasRURole = widget.userRoles?.contains('RU') == true;
-    
+    final bool hasRURole = widget.userRoles?.contains('RU') == true;
 
     if (!hasRURole) {
       return Scaffold(
@@ -256,35 +251,21 @@ class _EventsScreenState extends State<EventsScreen> {
           title: const Text('Access Denied'),
           backgroundColor: const Color(0xFF4F695B),
         ),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.lock,
                 size: 80,
                 color: Colors.grey,
               ),
-              SizedBox(height: 20),
-              Text(
+              const SizedBox(height: 20),
+              const Text(
                 'You need the "RU" role to access events.',
                 style: TextStyle(fontSize: 18, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
-              // Show unregister button in My Events tab
-              if (!_showingAllEvents)
-                ElevatedButton(
-                  onPressed: _isLoading ? null : () => _showUnregisterDialog(event),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  child: const Text('Unregister'),
-                ),
             ],
           ),
         ),
@@ -316,7 +297,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _showingAllEvents = true;
+                        _showingAllEvents = true; 
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -339,7 +320,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       setState(() {
-                        _showingAllEvents = false;
+                        _showingAllEvents = false; 
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -376,17 +357,14 @@ class _EventsScreenState extends State<EventsScreen> {
                             ),
                             const SizedBox(height: 16),
                             Text(
-                              _showingAllEvents 
-                                  ? 'No events available' 
-                                  : 'No registered events',
+                              _showingAllEvents ? 'No events available' : 'No registered events',
                               style: const TextStyle(
                                 fontSize: 18,
                                 color: Colors.grey,
                               ),
                             ),
-                            if (!_showingAllEvents)
+                            if (!_showingAllEvents) ...[
                               const SizedBox(height: 8),
-                            if (!_showingAllEvents)
                               const Text(
                                 'Register for events in the "All Events" tab',
                                 style: TextStyle(
@@ -395,6 +373,7 @@ class _EventsScreenState extends State<EventsScreen> {
                                 ),
                                 textAlign: TextAlign.center,
                               ),
+                            ],
                           ],
                         ),
                       )
