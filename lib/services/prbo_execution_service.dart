@@ -29,7 +29,9 @@ class PrboExecutionService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => ExecutionSheet.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load execution sheets: ${response.statusCode}');
+        throw Exception(
+          'Failed to load execution sheets: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching execution sheets: $e');
@@ -54,7 +56,9 @@ class PrboExecutionService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => ExecutionSheet.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load execution sheets for user: ${response.statusCode}');
+        throw Exception(
+          'Failed to load execution sheets for user: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching execution sheets for user: $e');
@@ -78,7 +82,9 @@ class PrboExecutionService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.cast<Map<String, dynamic>>();
       } else {
-        throw Exception('Failed to load available worksheets: ${response.statusCode}');
+        throw Exception(
+          'Failed to load available worksheets: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching available worksheets: $e');
@@ -129,7 +135,8 @@ class PrboExecutionService {
     try {
       final Map<String, dynamic> updateData = {};
       if (title != null) updateData['title'] = title;
-      if (associatedWorkSheetId != null) updateData['associatedWorkSheetId'] = associatedWorkSheetId;
+      if (associatedWorkSheetId != null)
+        updateData['associatedWorkSheetId'] = associatedWorkSheetId;
       if (associatedUser != null) updateData['associatedUser'] = associatedUser;
       if (description != null) updateData['description'] = description;
       if (state != null) updateData['state'] = state;
@@ -192,7 +199,9 @@ class PrboExecutionService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to export execution sheet: ${response.statusCode}');
+        throw Exception(
+          'Failed to export execution sheet: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error exporting execution sheet: $e');
@@ -216,7 +225,9 @@ class PrboExecutionService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to load execution sheet details: ${response.statusCode}');
+        throw Exception(
+          'Failed to load execution sheet details: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching execution sheet details: $e');
@@ -247,7 +258,9 @@ class PrboExecutionService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to assign operation to parcels: ${response.body}');
+        throw Exception(
+          'Failed to assign operation to parcels: ${response.body}',
+        );
       }
     } catch (e) {
       throw Exception('Error assigning operation to parcels: $e');
@@ -301,7 +314,9 @@ class PrboExecutionService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.cast<Map<String, dynamic>>();
       } else {
-        throw Exception('Failed to load parcels for operation: ${response.statusCode}');
+        throw Exception(
+          'Failed to load parcels for operation: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching parcels for operation: $e');
@@ -349,9 +364,7 @@ class PrboExecutionService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
         },
-        body: jsonEncode({
-          'activityId': activityId,
-        }),
+        body: jsonEncode({'activityId': activityId}),
       );
 
       if (response.statusCode == 200) {
@@ -426,7 +439,9 @@ class PrboExecutionService {
   }) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl/operations/$operationExecutionId/parcels/$parcelOperationExecutionId/activities'),
+        Uri.parse(
+          '$baseUrl/operations/$operationExecutionId/parcels/$parcelOperationExecutionId/activities',
+        ),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
@@ -437,7 +452,9 @@ class PrboExecutionService {
         final List<dynamic> data = jsonDecode(response.body);
         return data.map((json) => Activity.fromJson(json)).toList();
       } else {
-        throw Exception('Failed to load activities for parcel: ${response.statusCode}');
+        throw Exception(
+          'Failed to load activities for parcel: ${response.statusCode}',
+        );
       }
     } catch (e) {
       throw Exception('Error fetching activities for parcel: $e');
