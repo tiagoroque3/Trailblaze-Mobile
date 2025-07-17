@@ -27,11 +27,9 @@ class _PrboCreateExecutionSheetScreenState
   final _descriptionController = TextEditingController();
 
   String? _selectedWorksheetId;
-  String? _selectedAssignedUser;
   String? _selectedState;
 
   List<Map<String, dynamic>> _availableWorksheets = [];
-  List<String> _availableUsers = [];
   bool _isLoading = false;
   bool _isLoadingWorksheets = false;
 
@@ -43,7 +41,6 @@ class _PrboCreateExecutionSheetScreenState
   void initState() {
     super.initState();
     _loadAvailableWorksheets();
-    _loadAvailableUsers();
 
     if (_isEditing) {
       _populateEditingData();
@@ -54,7 +51,6 @@ class _PrboCreateExecutionSheetScreenState
     final sheet = widget.editingSheet!;
     _titleController.text = sheet.title;
     _selectedWorksheetId = sheet.associatedWorkSheetId;
-    _selectedAssignedUser = sheet.associatedUser;
     _selectedState = sheet.state;
     // Note: description field might not exist in the current model
   }
@@ -86,19 +82,6 @@ class _PrboCreateExecutionSheetScreenState
     }
   }
 
-  Future<void> _loadAvailableUsers() async {
-    // This is a placeholder - you might need to implement a proper user service
-    // For now, we'll use some example users
-    setState(() {
-      _availableUsers = [
-        widget.username, // Current user
-        'user1@example.com',
-        'user2@example.com',
-        'supervisor@example.com',
-      ];
-    });
-  }
-
   Future<void> _saveExecutionSheet() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -108,16 +91,6 @@ class _PrboCreateExecutionSheetScreenState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a worksheet'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
-    if (_selectedAssignedUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select an assigned user'),
           backgroundColor: Colors.red,
         ),
       );
@@ -136,7 +109,6 @@ class _PrboCreateExecutionSheetScreenState
           sheetId: widget.editingSheet!.id,
           title: _titleController.text.trim(),
           associatedWorkSheetId: _selectedWorksheetId,
-          associatedUser: _selectedAssignedUser,
           description: _descriptionController.text.trim(),
           state: _selectedState,
         );
@@ -153,7 +125,6 @@ class _PrboCreateExecutionSheetScreenState
           jwtToken: widget.jwtToken,
           title: _titleController.text.trim(),
           associatedWorkSheetId: _selectedWorksheetId!,
-          associatedUser: _selectedAssignedUser!,
           description: _descriptionController.text.trim(),
         );
 
@@ -340,57 +311,6 @@ class _PrboCreateExecutionSheetScreenState
               ),
 
               const SizedBox(height: 16),
-
-              // User Assignment
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'User Assignment',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryGreen,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      DropdownButtonFormField<String>(
-                        value: _selectedAssignedUser,
-                        decoration: const InputDecoration(
-                          labelText: 'Assigned User*',
-                          hintText: 'Select a user',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.person),
-                        ),
-                        items: _availableUsers.map((user) {
-                          return DropdownMenuItem<String>(
-                            value: user,
-                            child: Text(user),
-                          );
-                        }).toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            _selectedAssignedUser = value;
-                          });
-                        },
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please select an assigned user';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
 
               // State Selection (only for editing)
               if (_isEditing) ...[

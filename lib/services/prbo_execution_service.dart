@@ -90,7 +90,6 @@ class PrboExecutionService {
     required String jwtToken,
     required String title,
     required String associatedWorkSheetId,
-    required String associatedUser,
     String? description,
   }) async {
     try {
@@ -103,7 +102,6 @@ class PrboExecutionService {
         body: jsonEncode({
           'title': title,
           'associatedWorkSheetId': associatedWorkSheetId,
-          'associatedUser': associatedUser,
           'description': description,
         }),
       );
