@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-
 import 'package:trailblaze_app/models/activity.dart';
 import 'package:trailblaze_app/models/execution_sheet.dart';
 import 'package:trailblaze_app/models/operation_execution.dart';
@@ -68,7 +67,11 @@ class _PoExecutionSheetDetailsScreenState
               .map((activityJson) => Activity.fromJson(activityJson))
               .toList();
 
-          parcelOperations.add(parcelOp);
+          // Only add parcels where the user has assigned activities
+          if (parcelOp.activities
+              .any((act) => act.operatorId == widget.username)) {
+            parcelOperations.add(parcelOp);
+          }
         }
       }
 
@@ -81,7 +84,17 @@ class _PoExecutionSheetDetailsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Execution Sheet Details')),
+      appBar: AppBar(
+        title: Text(widget.sheet.title),
+        backgroundColor: AppColors.primaryGreen,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _refreshData,
+            tooltip: 'Refresh',
+          )
+        ],
+      ),
       body: FutureBuilder<List<ParcelOperationExecution>>(
         future: _parcelOperationsFuture,
         builder: (context, snapshot) {
@@ -93,13 +106,7 @@ class _PoExecutionSheetDetailsScreenState
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          final assignedParcels = snapshot.data!
-              .where(
-                (parcel) => parcel.activities.any(
-                  (a) => a.operatorId == widget.username,
-                ),
-              )
-              .toList();
+          final assignedParcels = snapshot.data ?? [];
 
           if (assignedParcels.isEmpty) {
             return _buildEmptyState();
@@ -142,29 +149,29 @@ class _PoExecutionSheetDetailsScreenState
   }
 
   Widget _buildParcelOperationsList(List<ParcelOperationExecution> parcels) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: parcels.length,
-      itemBuilder: (context, index) {
-        return _buildParcelOperationCard(parcels[index]);
-      },
+    return RefreshIndicator(
+      onRefresh: () async => _refreshData(),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: parcels.length,
+        itemBuilder: (context, index) {
+          return _buildParcelOperationCard(parcels[index]);
+        },
+      ),
     );
   }
 
   Widget _buildParcelOperationCard(ParcelOperationExecution parcelOp) {
+    // Filter activities for the current user
     final myActivities = parcelOp.activities
         .where((activity) => activity.operatorId == widget.username)
         .toList();
 
-    final Activity? ongoingActivity =
-        myActivities
-            .where((a) => a.endTime == null)
-            .cast<Activity?>()
-            .isNotEmpty
-        ? myActivities.firstWhere((a) => a.endTime == null)
-        : null;
-
-    final completedCount = myActivities.where((a) => a.endTime != null).length;
+    // Correctly count ongoing and completed activities for the user
+    final ongoingActivities =
+        myActivities.where((a) => a.endTime == null).length;
+    final completedActivities =
+        myActivities.where((a) => a.endTime != null).length;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -219,23 +226,29 @@ class _PoExecutionSheetDetailsScreenState
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  _buildActivitySummaryItem(
-                    icon: Icons.check_circle_outline,
-                    label: 'Completed',
-                    value: completedCount.toString(),
-                    color: Colors.green,
-                  ),
-                  const SizedBox(width: 16),
-                  if (ongoingActivity != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildActivitySummaryItem(
+                      icon: Icons.check_circle_outline,
+                      label: 'Completed',
+                      value: completedActivities.toString(),
+                      color: Colors.green,
+                    ),
                     _buildActivitySummaryItem(
                       icon: Icons.play_circle_outline,
                       label: 'Ongoing',
-                      value: '1',
-                      color: Colors.blue,
+                      value: ongoingActivities.toString(),
+                      color: ongoingActivities > 0 ? Colors.blue : Colors.grey,
                     ),
-                ],
+                  ],
+                ),
               ),
               const SizedBox(height: 12),
               Row(
@@ -304,17 +317,26 @@ class _PoExecutionSheetDetailsScreenState
     required String value,
     required Color color,
   }) {
-    return Row(
+    return Column(
       children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 4),
         Text(
-          '$value $label',
+          value,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
             color: color,
-            fontWeight: FontWeight.w500,
           ),
+        ),
+        const SizedBox(height: 2),
+        Row(
+          children: [
+            Icon(icon, size: 14, color: Colors.grey.shade600),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
         ),
       ],
     );

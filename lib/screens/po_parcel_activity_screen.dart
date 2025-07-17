@@ -33,25 +33,38 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
   }
 
   void _loadMyActivities() {
-    _myActivities = widget.parcelOperation.activities
-        .where((activity) => activity.operatorId == widget.username)
-        .toList();
-    
-    // Sort by start time, most recent first
-    _myActivities.sort((a, b) => b.startTime.compareTo(a.startTime));
+    setState(() {
+      _myActivities = widget.parcelOperation.activities
+          .where((activity) => activity.operatorId == widget.username)
+          .toList();
+      // Sort by start time, most recent first
+      _myActivities.sort((a, b) => b.startTime.compareTo(a.startTime));
+    });
   }
 
   Future<void> _startNewActivity() async {
-    // Check if there's already an ongoing activity
-    final ongoingActivity = _myActivities.firstWhere(
-      (activity) => activity.endTime == null,
-      orElse: () => null as dynamic,
-    );
+    // Confirmation dialog before starting
+    final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+              title: const Text('Start New Activity'),
+              content: const Text(
+                  'Are you sure you want to start a new activity for this parcel?'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen),
+                  child: const Text('Start'),
+                ),
+              ],
+            ));
 
-    if (ongoingActivity != null) {
-      _showSnackBar('You already have an ongoing activity for this parcel', isError: true);
-      return;
-    }
+    if (confirm != true) return;
 
     setState(() {
       _isLoading = true;
@@ -64,14 +77,16 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
         jwtToken: widget.jwtToken,
       );
 
-      _showSnackBar('Activity started successfully');
-      Navigator.of(context).pop(true); // Return to previous screen to refresh
+      _showSnackBar('Activity started successfully.');
+      Navigator.of(context).pop(true); // Return to refresh previous screen
     } catch (e) {
       _showSnackBar('Failed to start activity: $e', isError: true);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -87,45 +102,58 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
         jwtToken: widget.jwtToken,
       );
 
-      _showSnackBar('Activity stopped successfully');
-      Navigator.of(context).pop(true); // Return to previous screen to refresh
+      _showSnackBar('Activity stopped successfully.');
+      Navigator.of(context).pop(true); // Return to refresh previous screen
     } catch (e) {
       _showSnackBar('Failed to stop activity: $e', isError: true);
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+  void _navigateToActivityManagement(Activity activity) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PoActivityManagementScreen(
+          activity: activity,
+          jwtToken: widget.jwtToken,
+          isOngoing: activity.endTime == null,
+        ),
       ),
-    );
+    ).then((result) {
+      if (result == true) {
+        Navigator.of(context).pop(true); // Refresh previous screen
+      }
+    });
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: isError ? Colors.red : Colors.green,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ongoingActivity = _myActivities.firstWhere(
-      (activity) => activity.endTime == null,
-      orElse: () => null as dynamic,
-    );
+    final ongoingActivity = _myActivities
+        .where((activity) => activity.endTime == null)
+        .cast<Activity?>()
+        .firstWhere((_) => true, orElse: () => null);
 
     return Scaffold(
       appBar: AppBar(
         title: Text('Parcel ${widget.parcelOperation.parcelId}'),
         backgroundColor: AppColors.primaryGreen,
-        actions: [
-          if (ongoingActivity != null)
-            IconButton(
-              icon: const Icon(Icons.stop_circle),
-              onPressed: _isLoading ? null : () => _stopActivity(ongoingActivity),
-              tooltip: 'Stop Current Activity',
-            ),
-        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -150,7 +178,8 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.parcelOperation.operationExecution?.name ?? 'Unknown Operation',
+                        widget.parcelOperation.operationExecution?.name ??
+                            'Unknown Operation',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -170,35 +199,22 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                           _buildStatusChip(widget.parcelOperation.status),
                         ],
                       ),
-                      if (ongoingActivity != null) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.play_circle,
-                                color: Colors.blue.shade600,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Activity in progress since ${DateFormat('HH:mm').format(ongoingActivity.startTime)}',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.blue.shade800,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                      const SizedBox(height: 16),
+                      // **MODIFICATION**: Replaced info bar with a button
+                      if (ongoingActivity == null)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isLoading ? null : _startNewActivity,
+                            icon: const Icon(Icons.play_arrow),
+                            label: const Text('Start New Activity'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
@@ -218,14 +234,6 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                 ),
               ],
             ),
-      floatingActionButton: ongoingActivity == null
-          ? FloatingActionButton.extended(
-              onPressed: _isLoading ? null : _startNewActivity,
-              backgroundColor: AppColors.primaryGreen,
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Start Activity'),
-            )
-          : null,
     );
   }
 
@@ -243,16 +251,16 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
           Text(
             'No activities yet',
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: Colors.grey.shade600,
-            ),
+                  color: Colors.grey.shade600,
+                ),
           ),
           const SizedBox(height: 8),
           Text(
             'Start your first activity for this parcel',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey.shade500,
-            ),
+                  color: Colors.grey.shade500,
+                ),
           ),
         ],
       ),
@@ -261,9 +269,6 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
 
   Widget _buildActivityCard(Activity activity) {
     final isOngoing = activity.endTime == null;
-    final duration = isOngoing
-        ? DateTime.now().difference(activity.startTime)
-        : activity.endTime!.difference(activity.startTime);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
@@ -273,18 +278,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => PoActivityManagementScreen(
-                activity: activity,
-                jwtToken: widget.jwtToken,
-                isOngoing: isOngoing,
-              ),
-            ),
-          );
-        },
+        onTap: () => _navigateToActivityManagement(activity),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -318,91 +312,33 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                   _buildActivityStatusChip(isOngoing),
                 ],
               ),
-              const SizedBox(height: 8),
-              
-              Row(
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    _formatDuration(duration),
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
+              const SizedBox(height: 12),
+              if (isOngoing)
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isLoading ? null : () => _stopActivity(activity),
+                    icon: const Icon(Icons.stop_circle_outlined, size: 20),
+                    label: const Text('Stop Activity'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
                     ),
                   ),
-                ],
-              ),
-              
-              if (activity.observations != null && activity.observations!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.note_outlined,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        activity.observations!,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
                 ),
-              ],
-              
-              if (activity.photoUrls.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.photo_outlined,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${activity.photoUrls.length} photo${activity.photoUrls.length == 1 ? '' : 's'}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    size: 14,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isOngoing ? 'Tap to stop or add info' : 'Tap to view details',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
+              if (!isOngoing)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _navigateToActivityManagement(activity),
+                    icon: const Icon(Icons.edit_note, size: 20),
+                    label: const Text('View & Add Info'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primaryGreen,
+                      side: const BorderSide(color: AppColors.primaryGreen),
                     ),
                   ),
-                ],
-              ),
+                )
             ],
           ),
         ),
@@ -413,7 +349,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
   Widget _buildStatusChip(String status) {
     Color backgroundColor;
     Color textColor;
-    
+
     switch (status.toUpperCase()) {
       case 'ASSIGNED':
         backgroundColor = Colors.orange.shade100;
@@ -465,16 +401,5 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
         ),
       ),
     );
-  }
-
-  String _formatDuration(Duration duration) {
-    final hours = duration.inHours;
-    final minutes = duration.inMinutes.remainder(60);
-    
-    if (hours > 0) {
-      return '${hours}h ${minutes}m';
-    } else {
-      return '${minutes}m';
-    }
   }
 }

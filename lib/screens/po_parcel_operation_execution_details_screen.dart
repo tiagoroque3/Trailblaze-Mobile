@@ -18,11 +18,12 @@ class PoParcelOperationExecutionDetailsScreen extends StatefulWidget {
   });
 
   @override
-  State<PoParcelOperationExecutionDetailsScreen> createState() => _PoParcelOperationExecutionDetailsScreenState();
+  State<PoParcelOperationExecutionDetailsScreen> createState() =>
+      _PoParcelOperationExecutionDetailsScreenState();
 }
 
-class _PoParcelOperationExecutionDetailsScreenState extends State<PoParcelOperationExecutionDetailsScreen> {
-  
+class _PoParcelOperationExecutionDetailsScreenState
+    extends State<PoParcelOperationExecutionDetailsScreen> {
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -32,68 +33,11 @@ class _PoParcelOperationExecutionDetailsScreenState extends State<PoParcelOperat
     );
   }
 
-  Future<void> _startActivity() async {
-    final url = Uri.parse('https://trailblaze-460312.appspot.com/rest/operations/${widget.parcelOperation.operationExecutionId}/start');
-    final body = jsonEncode({'parcelOperationExecutionId': widget.parcelOperation.id});
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${widget.jwtToken}'
-        },
-        body: body,
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        _showSnackBar('Activity started successfully.');
-        // The parent screen will refresh when we pop back.
-        Navigator.of(context).pop(true);
-      } else {
-        _showSnackBar('Failed to start activity: ${response.body}', isError: true);
-      }
-    } catch (e) {
-      _showSnackBar('An error occurred: $e', isError: true);
-    }
-  }
-
-  Future<void> _stopActivity(String activityId) async {
-    final url = Uri.parse('https://trailblaze-460312.appspot.com/rest/operations/${widget.parcelOperation.operationExecutionId}/stop');
-    final body = jsonEncode({'activityId': activityId});
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ${widget.jwtToken}'
-        },
-        body: body,
-      );
-
-      if (response.statusCode == 200) {
-        _showSnackBar('Activity stopped successfully.');
-        Navigator.of(context).pop(true);
-      } else {
-        _showSnackBar('Failed to stop activity: ${response.body}', isError: true);
-      }
-    } catch (e) {
-      _showSnackBar('An error occurred: $e', isError: true);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final ongoingActivity = widget.parcelOperation.activities.firstWhere(
-      (act) => act.endTime == null && act.operatorId == widget.username,
-      orElse: () => null as dynamic,
-    );
-
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-            'Parcel: ${widget.parcelOperation.parcelId}'),
+        title: Text('Parcel: ${widget.parcelOperation.parcelId}'),
         backgroundColor: AppColors.primaryGreen,
       ),
       body: Column(
@@ -103,8 +47,12 @@ class _PoParcelOperationExecutionDetailsScreenState extends State<PoParcelOperat
               itemCount: widget.parcelOperation.activities.length,
               itemBuilder: (context, index) {
                 final activity = widget.parcelOperation.activities[index];
-                final isOngoing = activity.endTime == null;
                 final isMyActivity = activity.operatorId == widget.username;
+
+                // Show only activities for the current user
+                if (!isMyActivity) {
+                  return const SizedBox.shrink();
+                }
 
                 return Card(
                   margin: const EdgeInsets.all(8.0),
@@ -112,13 +60,6 @@ class _PoParcelOperationExecutionDetailsScreenState extends State<PoParcelOperat
                     title: Text('Activity by ${activity.operatorId}'),
                     subtitle: Text(
                         'Started: ${activity.startTime.toLocal()}\nEnded: ${activity.endTime?.toLocal() ?? 'Ongoing'}'),
-                    trailing: (isMyActivity && isOngoing)
-                        ? ElevatedButton(
-                            onPressed: () => _stopActivity(activity.id),
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                            child: const Text('Stop'),
-                          )
-                        : null,
                     onTap: () {
                       Navigator.push(
                         context,
@@ -137,15 +78,6 @@ class _PoParcelOperationExecutionDetailsScreenState extends State<PoParcelOperat
           ),
         ],
       ),
-      // Show start button only if there are no ongoing activities for this user on this parcel
-      floatingActionButton: ongoingActivity == null
-          ? FloatingActionButton.extended(
-              onPressed: _startActivity,
-              label: const Text('Start New Activity'),
-              icon: const Icon(Icons.play_arrow),
-              backgroundColor: AppColors.primaryGreen,
-            )
-          : null,
     );
   }
 }
