@@ -1,4 +1,6 @@
-import 'dart:math';
+
+import 'dart:math' as math;
+
 
 class TrailPoint {
   final double latitude;
@@ -151,23 +153,24 @@ class Trail {
     return total;
   }
 
+ double _degToRad(double deg) => deg * math.pi / 180;
+
   double _calculateDistance(TrailPoint p1, TrailPoint p2) {
-    const double earthRadius = 6371000; // metros
+    const double earthRadius = 6_371_000; // metros
 
-    double lat1Rad = p1.latitude * (pi / 180);
-    double lat2Rad = p2.latitude * (pi / 180);
-    double deltaLatRad = (p2.latitude - p1.latitude) * (pi / 180);
-    double deltaLngRad = (p2.longitude - p1.longitude) * (pi / 180);
+    final lat1Rad = _degToRad(p1.latitude);
+    final lat2Rad = _degToRad(p2.latitude);
+    final deltaLatRad = _degToRad(p2.latitude - p1.latitude);
+    final deltaLngRad = _degToRad(p2.longitude - p1.longitude);
 
-    double a =
-        sin(deltaLatRad / 2) * sin(deltaLatRad / 2) +
-        cos(lat1Rad) *
-            cos(lat2Rad) *
-            sin(deltaLngRad / 2) *
-            sin(deltaLngRad / 2);
-    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
-    return earthRadius * c;
+    final a = math.sin(deltaLatRad / 2) * math.sin(deltaLatRad / 2) +
+        math.cos(lat1Rad) * math.cos(lat2Rad) *
+        math.sin(deltaLngRad / 2) * math.sin(deltaLngRad / 2);
+
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+
+    return earthRadius * c; // distância em metros
   }
 }
 
