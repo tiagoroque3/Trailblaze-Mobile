@@ -109,6 +109,38 @@ class _EventsScreenState extends State<EventsScreen> {
     }
   }
 
+  void _showUnregisterDialog(Event event) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Unregister'),
+          content: Text(
+            'Are you sure you want to unregister from "${event.title}"?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _unregisterFromEvent(event);
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text('Unregister'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
