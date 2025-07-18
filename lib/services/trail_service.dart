@@ -11,13 +11,30 @@ class TrailService {
     required String jwtToken,
   }) async {
     try {
+      // Adicionar observação inicial se houver proximidades
+      Map<String, dynamic> requestData = request.toJson();
+      
+      if (request.worksheetProximities.isNotEmpty) {
+        String proximityText = 'Trail recorded near transformation zones: ';
+        proximityText += request.worksheetProximities
+            .map((p) => '${p.worksheetName} (${p.distanceKm.toStringAsFixed(2)}km)')
+            .join(', ');
+        
+        // Se não há observação inicial, criar uma
+        if (requestData['initialObservation'] == null || requestData['initialObservation'].isEmpty) {
+          requestData['initialObservation'] = proximityText;
+        } else {
+          requestData['initialObservation'] = '${requestData['initialObservation']}\n\n$proximityText';
+        }
+      }
+      
       final response = await http.post(
         Uri.parse('$baseUrl/trails/create'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
         },
-        body: jsonEncode(request.toJson()),
+        body: jsonEncode(requestData),
       );
 
       if (response.statusCode == 201) {

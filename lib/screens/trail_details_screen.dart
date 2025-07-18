@@ -392,9 +392,94 @@ class _TrailDetailsScreenState extends State<TrailDetailsScreen> {
                           '${_currentTrail.observations.length} observation${_currentTrail.observations.length == 1 ? '' : 's'}',
                         ),
                       ],
+                      
+                      if (_currentTrail.worksheetProximities.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildInfoChip(
+                          Icons.warning_amber,
+                          '${_currentTrail.worksheetProximities.length} proximity alert${_currentTrail.worksheetProximities.length == 1 ? '' : 's'}',
+                        ),
+                      ],
                     ],
                   ),
                 ),
+                
+                // Worksheet Proximities Section
+                if (_currentTrail.worksheetProximities.isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16.0),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.warning_amber,
+                              color: Colors.orange.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Transformation Zone Proximities',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ...(_currentTrail.worksheetProximities.map((proximity) => 
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.orange.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  proximity.worksheetName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'POSP: ${proximity.posp}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Distance: ${proximity.distanceKm.toStringAsFixed(2)} km',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.orange.shade700,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )),
+                      ],
+                    ),
+                  ),
+                ],
                 
                 // Map
                 Expanded(

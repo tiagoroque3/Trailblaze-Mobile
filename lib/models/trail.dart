@@ -2,6 +2,38 @@
 import 'dart:math' as math;
 
 
+class WorksheetProximity {
+  final String worksheetId;
+  final String worksheetName;
+  final String posp;
+  final double distanceKm;
+
+  WorksheetProximity({
+    required this.worksheetId,
+    required this.worksheetName,
+    required this.posp,
+    required this.distanceKm,
+  });
+
+  factory WorksheetProximity.fromJson(Map<String, dynamic> json) {
+    return WorksheetProximity(
+      worksheetId: json['worksheetId'] as String,
+      worksheetName: json['worksheetName'] as String,
+      posp: json['posp'] as String,
+      distanceKm: (json['distanceKm'] as num).toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'worksheetId': worksheetId,
+      'worksheetName': worksheetName,
+      'posp': posp,
+      'distanceKm': distanceKm,
+    };
+  }
+}
+
 class TrailPoint {
   final double latitude;
   final double longitude;
@@ -69,6 +101,7 @@ class Trail {
   final DateTime createdAt;
   final List<TrailPoint> points;
   final List<TrailObservation> observations;
+  final List<WorksheetProximity> worksheetProximities;
 
   Trail({
     required this.id,
@@ -80,6 +113,7 @@ class Trail {
     required this.createdAt,
     required this.points,
     required this.observations,
+    this.worksheetProximities = const [],
   });
 
   factory Trail.fromJson(Map<String, dynamic> json) {
@@ -109,6 +143,11 @@ class Trail {
               ?.map((o) => TrailObservation.fromJson(o as Map<String, dynamic>))
               .toList() ??
           [],
+      worksheetProximities:
+          (json['worksheetProximities'] as List<dynamic>?)
+              ?.map((w) => WorksheetProximity.fromJson(w as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -123,6 +162,7 @@ class Trail {
       'createdAt': createdAt.millisecondsSinceEpoch,
       'points': points.map((p) => p.toJson()).toList(),
       'observations': observations.map((o) => o.toJson()).toList(),
+      'worksheetProximities': worksheetProximities.map((w) => w.toJson()).toList(),
     };
   }
 
@@ -179,12 +219,14 @@ class CreateTrailRequest {
   final String worksheetId;
   final TrailVisibility visibility;
   final List<TrailPoint> points;
+  final List<WorksheetProximity> worksheetProximities;
 
   CreateTrailRequest({
     required this.name,
     required this.worksheetId,
     required this.visibility,
     required this.points,
+    this.worksheetProximities = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -193,6 +235,7 @@ class CreateTrailRequest {
       'worksheetId': worksheetId,
       'visibility': visibility.name,
       'points': points.map((p) => p.toJson()).toList(),
+      'worksheetProximities': worksheetProximities.map((w) => w.toJson()).toList(),
     };
   }
 
