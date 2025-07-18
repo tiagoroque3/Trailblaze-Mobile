@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:trailblaze_app/screens/welcome_screen.dart'; // Import your welcome screen
+import 'package:flutter_background_geolocation/flutter_background_geolocation.dart' as bg;
 
 // Define a custom MaterialColor for the green theme
 MaterialColor createMaterialColor(Color color) {
@@ -39,4 +40,9 @@ class MyApp extends StatelessWidget {
       home: WelcomeScreen(), // Set WelcomeScreen as the initial screen
     );
   }
+}
+
+void headlessTask(bg.HeadlessEvent headlessEvent) async {
+  print(' headlessTask: $headlessEvent');
+  // Implement your headless task logic here.
 }
