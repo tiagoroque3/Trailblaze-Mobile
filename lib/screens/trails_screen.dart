@@ -399,6 +399,23 @@ class _TrailsScreenState extends State<TrailsScreen> {
                   ],
                 ),
               ],
+              if (trail.worksheetProximities.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber,
+                      size: 16,
+                      color: Colors.orange.shade600,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${trail.worksheetProximities.length} proximity alert${trail.worksheetProximities.length == 1 ? '' : 's'}',
+                      style: TextStyle(fontSize: 14, color: Colors.orange.shade600),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
