@@ -67,11 +67,7 @@ class _PoExecutionSheetDetailsScreenState
               .map((activityJson) => Activity.fromJson(activityJson))
               .toList();
 
-          // Only add parcels where the user has assigned activities
-          if (parcelOp.activities
-              .any((act) => act.operatorId == widget.username)) {
-            parcelOperations.add(parcelOp);
-          }
+          parcelOperations.add(parcelOp);
         }
       }
 
@@ -106,7 +102,9 @@ class _PoExecutionSheetDetailsScreenState
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          final assignedParcels = snapshot.data ?? [];
+          final assignedParcels = snapshot.data!
+              .where((parcel) => parcel.assignedUsername == widget.username)
+              .toList();
 
           if (assignedParcels.isEmpty) {
             return _buildEmptyState();

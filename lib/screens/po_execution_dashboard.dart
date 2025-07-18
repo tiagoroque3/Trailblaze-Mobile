@@ -60,9 +60,9 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
             jwtToken: widget.jwtToken,
           );
 
-          // Check if user has any assigned activities
-          bool hasAssignedActivities = _checkUserAssignments(details);
-          sheet.isAssignedToCurrentUser = hasAssignedActivities;
+          // Check if user has any assigned parcels
+          bool hasAssignedParcels = _checkUserAssignments(details);
+          sheet.isAssignedToCurrentUser = hasAssignedParcels;
           sheetsWithAssignments.add(sheet);
         } catch (e) {
           // If we can't check assignments, still add the sheet
@@ -89,11 +89,10 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
     for (var opData in operations) {
       final List<dynamic> parcels = opData['parcels'] ?? [];
       for (var parcelData in parcels) {
-        final List<dynamic> activities = parcelData['activities'] ?? [];
-        for (var activity in activities) {
-          if (activity['operatorId'] == widget.username) {
-            return true;
-          }
+        final parcelExecution = parcelData['parcelExecution'];
+        if (parcelExecution != null &&
+            parcelExecution['assignedUsername'] == widget.username) {
+          return true;
         }
       }
     }
@@ -348,7 +347,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
-                    'You have assigned activities',
+                    'You have assigned parcels',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.primaryGreen,
