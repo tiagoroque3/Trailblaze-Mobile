@@ -29,13 +29,13 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   final Set<Polygon> _polygons = {};
   final Set<Marker> _markers = {};
   bool _isInsideParcel = false;
-  String _statusMessage = 'Checking location...';
+  String _statusMessage = 'Initializing...';
   StreamSubscription<Position>? _positionStreamSubscription;
 
   @override
   void initState() {
     super.initState();
-    _initializeMapAndTracking();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _showBatteryWarning());
   }
 
   @override
@@ -45,7 +45,40 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     super.dispose();
   }
 
+  Future<void> _showBatteryWarning() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Battery Usage Warning'),
+          content: const SingleChildScrollView(
+            child: ListBody(
+              children: <Widget>[
+                Text('Live location tracking is active.'),
+                SizedBox(height: 8),
+                Text('This may consume more battery than usual.'),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Continue'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _initializeMapAndTracking();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _initializeMapAndTracking() async {
+    setState(() {
+      _statusMessage = 'Loading parcel boundary...';
+    });
     await _fetchParcelGeometry();
     await _startLocationTracking();
   }
@@ -76,7 +109,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
           );
           _polygons.add(parcelPolygon);
         });
-        _fitCameraToPolygon(geometry);
+        _centerOnParcel();
       } else if (mounted) {
         _showSnackBar('Could not load parcel boundary.', isError: true);
       }
@@ -86,6 +119,9 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   }
 
   Future<void> _startLocationTracking() async {
+    setState(() {
+      _statusMessage = 'Starting location services...';
+    });
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       _setStatus('Location services are disabled.', isError: true);
@@ -103,7 +139,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
 
     if (permission == LocationPermission.deniedForever) {
       _setStatus(
-          'Location permissions are permanently denied, we cannot request permissions.',
+          'Location permissions are permanently denied.',
           isError: true);
       return;
     }
@@ -119,38 +155,60 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       if (!mounted) return;
 
       final currentLatLng = LatLng(position.latitude, position.longitude);
-
-      setState(() {
-        _markers.removeWhere((m) => m.markerId.value == 'userLocation');
-        _markers.add(
-          Marker(
-            markerId: const MarkerId('userLocation'),
-            position: currentLatLng,
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-                BitmapDescriptor.hueAzure),
-            infoWindow: const InfoWindow(title: 'Your Location'),
-          ),
-        );
-      });
-
-      if (_polygons.isNotEmpty) {
-        final polygonPoints = _polygons.first.points;
-        final isInside = MapUtils.isPointInPolygon(currentLatLng, polygonPoints);
-        _setStatus(
-            isInside
-                ? 'You are inside the parcel.'
-                : 'WARNING: You are outside the parcel!',
-            isError: !isInside);
-      }
+      _updateUserMarker(currentLatLng);
+      _checkIfInsideParcel(currentLatLng);
     });
   }
 
-  void _fitCameraToPolygon(List<LatLng> polygonPoints) {
-    if (polygonPoints.isEmpty || _mapController == null) return;
+  void _updateUserMarker(LatLng position) {
+    setState(() {
+      _markers.removeWhere((m) => m.markerId.value == 'userLocation');
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('userLocation'),
+          position: position,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          infoWindow: const InfoWindow(title: 'Your Location'),
+        ),
+      );
+    });
+  }
 
-    LatLngBounds bounds = MapUtils.boundsFromLatLngList(polygonPoints);
-    _mapController!
-        .animateCamera(CameraUpdate.newLatLngBounds(bounds, 50.0));
+  void _checkIfInsideParcel(LatLng position) {
+    if (_polygons.isNotEmpty) {
+      final polygonPoints = _polygons.first.points;
+      final isInside = MapUtils.isPointInPolygon(position, polygonPoints);
+      _setStatus(
+        isInside
+            ? 'You are inside the parcel.'
+            // CORRECTED: Updated warning text
+            : 'WARNING: You are not inside the correct parcel',
+        isError: !isInside,
+      );
+    }
+  }
+
+  void _centerOnParcel() {
+    if (_polygons.isEmpty || _mapController == null) {
+      _showSnackBar('Parcel boundary not loaded yet.');
+      return;
+    }
+    LatLngBounds bounds = MapUtils.boundsFromLatLngList(_polygons.first.points);
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 50.0));
+  }
+
+  void _goToMyLocation() {
+    final userMarker = _markers.firstWhere(
+        (m) => m.markerId.value == 'userLocation',
+        orElse: () => const Marker(markerId: MarkerId('')));
+
+    if (userMarker.markerId.value.isNotEmpty && _mapController != null) {
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(userMarker.position, 16.5),
+      );
+    } else {
+      _showSnackBar('Your location is not available yet.');
+    }
   }
 
   void _setStatus(String message, {bool isError = false}) {
@@ -177,8 +235,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title:
-            Text('Live Tracking - Parcel ${widget.parcelOperation.parcelId}'),
+        title: Text('Live Tracking - Parcel ${widget.parcelOperation.parcelId}'),
         backgroundColor: AppColors.primaryGreen,
       ),
       body: Stack(
@@ -186,10 +243,6 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
           GoogleMap(
             onMapCreated: (controller) {
               _mapController = controller;
-              // After map is created, we can try to fit the camera if the polygon is already loaded
-              if (_polygons.isNotEmpty) {
-                _fitCameraToPolygon(_polygons.first.points);
-              }
             },
             initialCameraPosition: const CameraPosition(
               target: LatLng(38.7223, -9.1393), // Default to Lisbon
@@ -197,8 +250,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
             ),
             polygons: _polygons,
             markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            myLocationEnabled: false,
+            myLocationButtonEnabled: false,
           ),
           Positioned(
             top: 0,
@@ -218,6 +271,28 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
                   fontSize: 16,
                 ),
               ),
+            ),
+          ),
+          Positioned(
+            // CORRECTED: Changed 'right' to 'left' to move buttons
+            bottom: 30,
+            left: 16,
+            child: Column(
+              children: [
+                FloatingActionButton.extended(
+                  onPressed: _goToMyLocation,
+                  label: const Text("Me"),
+                  icon: const Icon(Icons.person_pin_circle),
+                  heroTag: 'myLocationFab',
+                ),
+                const SizedBox(height: 10),
+                FloatingActionButton.extended(
+                  onPressed: _centerOnParcel,
+                  label: const Text("Parcel"),
+                  icon: const Icon(Icons.fullscreen),
+                  heroTag: 'centerParcelFab',
+                ),
+              ],
             ),
           ),
         ],

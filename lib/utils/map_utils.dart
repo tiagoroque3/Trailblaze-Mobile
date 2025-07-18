@@ -3,31 +3,33 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 class MapUtils {
   /// Checks if a geographical point is inside a polygon using the Ray Casting algorithm.
   static bool isPointInPolygon(LatLng point, List<LatLng> polygon) {
-    if (polygon.isEmpty) {
+    if (polygon.length < 3) {
+      // A polygon must have at least 3 vertices
       return false;
     }
 
     int crossings = 0;
     for (int i = 0; i < polygon.length; i++) {
-      final p1 = polygon[i];
-      final p2 = polygon[(i + 1) % polygon.length];
+      LatLng p1 = polygon[i];
+      LatLng p2 = polygon[(i + 1) % polygon.length];
 
-      if (p1.latitude == p2.latitude) continue;
+      // Check if the ray from the point intersects with the edge (p1, p2)
+      if (((p1.latitude <= point.latitude && point.latitude < p2.latitude) ||
+          (p2.latitude <= point.latitude && point.latitude < p1.latitude))) {
+        // Calculate the x-coordinate (longitude) of the intersection
+        double intersectionLongitude = (point.latitude - p1.latitude) *
+                (p2.longitude - p1.longitude) /
+                (p2.latitude - p1.latitude) +
+            p1.longitude;
 
-      if (point.latitude < p1.latitude.clamp(p2.latitude, p1.latitude) ||
-          point.latitude > p1.latitude.clamp(p1.latitude, p2.latitude)) {
-        continue;
-      }
-
-      final double x = (point.latitude - p1.latitude) *
-              (p2.longitude - p1.longitude) /
-              (p2.latitude - p1.latitude) +
-          p1.longitude;
-
-      if (x > point.longitude) {
-        crossings++;
+        // If the intersection is to the right of the point, it's a crossing
+        if (point.longitude < intersectionLongitude) {
+          crossings++;
+        }
       }
     }
+
+    // An odd number of crossings means the point is inside the polygon
     return crossings % 2 == 1;
   }
 
@@ -46,6 +48,7 @@ class MapUtils {
         if (latLng.longitude < y0!) y0 = latLng.longitude;
       }
     }
-    return LatLngBounds(northeast: LatLng(x1!, y1!), southwest: LatLng(x0!, y0!));
+    return LatLngBounds(
+        northeast: LatLng(x1!, y1!), southwest: LatLng(x0!, y0!));
   }
 }
