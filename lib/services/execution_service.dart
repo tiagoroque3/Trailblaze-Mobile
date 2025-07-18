@@ -189,8 +189,8 @@ class ExecutionService {
     required String worksheetId,
     required String parcelId,
   }) async {
-    // This endpoint fetches the details of a specific worksheet
-    final Uri url = Uri.parse('$baseUrl/fe/$worksheetId/detail');
+    // CORRECTED ENDPOINT: Directly fetches a specific parcel's geometry
+    final Uri url = Uri.parse('$baseUrl/fo/$worksheetId/parcels/$parcelId'); // Changed this line
     final Map<String, String> headers = {
       'Content-Type': 'application/json; charset=UTF-8',
       'Authorization': 'Bearer $jwtToken',
@@ -200,26 +200,17 @@ class ExecutionService {
       final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> worksheetDetail = jsonDecode(response.body);
-        // The backend response nests parcels under the 'parcels' key
-        final List<dynamic> parcelsJson = worksheetDetail['parcels'] ?? [];
+        final Map<String, dynamic> parcelJson = jsonDecode(response.body);
 
-        // Find the specific parcel by its ID
-        final parcelJson = parcelsJson.firstWhere(
-          (p) => p['polygonId'].toString() == parcelId,
-          orElse: () => null,
-        );
-
-        if (parcelJson != null) {
-          // Extract and convert the geometry
+        // Check if the geometry field exists in the response
+        if (parcelJson.containsKey('geometry')) {
           return _convertGeometryToLatLng(parcelJson['geometry']);
         } else {
-          throw Exception(
-              'Parcel with ID $parcelId not found in worksheet $worksheetId');
+          throw Exception('Geometry data not found in the response for parcel $parcelId');
         }
       } else {
         throw Exception(
-            'Failed to fetch worksheet details: ${response.statusCode}');
+          'Failed to fetch parcel details for worksheet $worksheetId and parcel $parcelId. Status code: ${response.statusCode}');
       }
     } catch (e) {
       throw Exception('Error fetching parcel geometry: $e');
