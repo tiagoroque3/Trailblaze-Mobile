@@ -6,6 +6,7 @@ import 'dart:async';
 import '../models/trail.dart';
 import '../services/trail_service.dart';
 import '../utils/app_constants.dart';
+import '../utils/proximity_detector.dart';
 
 class TrailRecordingScreen extends StatefulWidget {
   final String username;
@@ -231,9 +232,15 @@ class _TrailRecordingScreenState extends State<TrailRecordingScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Text('Save Trail'),
-        content: Column(
+      builder: (context) => _buildSaveDialog(),
+    );
+  }
+
+  Widget _buildSaveDialog() {
+    return AlertDialog(
+      title: const Text('Save Trail'),
+      content: SingleChildScrollView(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
@@ -276,27 +283,27 @@ class _TrailRecordingScreenState extends State<TrailRecordingScreen> {
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _discardTrail();
-            },
-            child: const Text('Discard'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _saveTrail();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryGreen,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Save'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _discardTrail();
+          },
+          child: const Text('Discard'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _checkProximityAndSave();
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primaryGreen,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 
@@ -310,7 +317,85 @@ class _TrailRecordingScreenState extends State<TrailRecordingScreen> {
     _showSnackBar('Trail discarded');
   }
 
-  Future<void> _saveTrail() async {
+  Future<void> _checkProximityAndSave() async {
+    if (_nameController.text.trim().isEmpty) {
+      _showSnackBar('Please enter a trail name', isError: true);
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Detectar proximidades com worksheets
+      final proximities = await ProximityDetector.detectWorksheetProximities(
+        trailPoints: _recordedPoints,
+        jwtToken: widget.jwtToken,
+      );
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (proximities.isNotEmpty) {
+        // Mostrar aviso de proximidade
+        final shouldContinue = await _showProximityWarning(proximities);
+        if (shouldContinue == true) {
+          await _saveTrailWithProximities(proximities);
+        }
+      } else {
+        await _saveTrailWithProximities([]);
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showSnackBar('Error checking proximities: $e', isError: true);
+    }
+  }
+
+  Future<bool?> _showProximityWarning(List<WorksheetProximity> proximities) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Proximity Alert'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Your trail passed within 5km of transformation zones:'),
+            const SizedBox(height: 12),
+            ...proximities.map((proximity) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '• ${proximity.worksheetName} (${proximity.posp}) - ${proximity.distanceKm.toStringAsFixed(2)}km',
+                style: const TextStyle(fontSize: 14),
+              ),
+            )),
+            const SizedBox(height: 12),
+            const Text('This information will be saved with your trail.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveTrailWithProximities(List<WorksheetProximity> proximities) async {
     if (_nameController.text.trim().isEmpty) {
       _showSnackBar('Please enter a trail name', isError: true);
       return;
@@ -326,6 +411,7 @@ class _TrailRecordingScreenState extends State<TrailRecordingScreen> {
         worksheetId: _selectedWorksheetId ?? '1', // Default worksheet
         visibility: _selectedVisibility,
         points: _recordedPoints,
+        worksheetProximities: proximities,
       );
 
       await TrailService.createTrail(
