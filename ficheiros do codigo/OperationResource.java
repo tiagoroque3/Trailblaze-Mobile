@@ -1,27 +1,46 @@
 package pt.unl.fct.di.apdc.trailblaze.resources;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
 import com.google.cloud.Timestamp;
-import com.google.cloud.datastore.*;
-import com.google.cloud.datastore.StructuredQuery.CompositeFilter;
+import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.DatastoreException;
+import com.google.cloud.datastore.DatastoreOptions;
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.datastore.Key;
+import com.google.cloud.datastore.KeyFactory;
+import com.google.cloud.datastore.ListValue;
+import com.google.cloud.datastore.Query;
+import com.google.cloud.datastore.QueryResults;
+import com.google.cloud.datastore.StringValue;
+import com.google.cloud.datastore.StructuredQuery;
 import com.google.cloud.datastore.StructuredQuery.PropertyFilter;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.google.cloud.datastore.Value;
 
 import jakarta.json.Json;
-import jakarta.json.JsonArray;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObjectBuilder;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.*;
-import pt.unl.fct.di.apdc.trailblaze.util.Activity;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.PATCH;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import pt.unl.fct.di.apdc.trailblaze.util.AddInfoRequest;
 import pt.unl.fct.di.apdc.trailblaze.util.JwtUtil;
 import pt.unl.fct.di.apdc.trailblaze.util.ParcelExecutionStatus;
 import pt.unl.fct.di.apdc.trailblaze.util.Role;
-
-import java.time.Instant;
-import java.util.*;
-import java.util.stream.Collectors;
 
 
 
@@ -67,6 +86,53 @@ public class OperationResource {
 
     private String getUsername(String token) {
         return JwtUtil.getUsername(token);
+    }
+
+    /**
+     * Valida se um utilizador tem um role específico
+     * @param username Username ou email do utilizador
+     * @param requiredRole Role que deve ter
+     * @return Entity do utilizador se for válido, null caso contrário
+     */
+    private Entity validateUserWithRole(String userId, String requiredRole) {
+        try {
+            // Tentar buscar apenas por ID da conta (chave da entidade)
+            Key userKey = datastore.newKeyFactory().setKind("Account").newKey(userId);
+            Entity userEntity = datastore.get(userKey);
+            
+            if (userEntity == null) {
+                return null; // Utilizador não encontrado
+            }
+            
+            // Verificar se tem o role requerido
+            if (userEntity.contains("roles")) {
+                List<Value<?>> roles = userEntity.getList("roles");
+                for (Value<?> roleValue : roles) {
+                    if (requiredRole.equals(((StringValue) roleValue).get())) {
+                        return userEntity; // Utilizador válido com o role
+                    }
+                }
+            }
+            
+            return null; // Utilizador não tem o role requerido
+            
+        } catch (Exception e) {
+            System.err.println("Erro ao validar utilizador: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Verifica se dois usernames se referem ao mesmo utilizador
+     * Compara apenas por ID da conta
+     */
+    private boolean isSameUser(String userId1, String userId2) {
+        if (userId1 == null || userId2 == null) {
+            return false;
+        }
+        
+        // Comparação direta por ID
+        return userId1.equals(userId2);
     }
 
     @POST
@@ -138,7 +204,19 @@ public class OperationResource {
                         .entity("ID da parcela inválido.").build();
             }
 
-            // 5. Verificar se parcela existe na WorkSheet associada
+            if (parcel.assignedUsername == null || parcel.assignedUsername.isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Username do PO para assignar é obrigatório.").build();
+            }
+
+            // 5. Validar que o username tem role PO
+            Entity poUserEntity = validateUserWithRole(parcel.assignedUsername, "PO");
+            if (poUserEntity == null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("Username '" + parcel.assignedUsername + "' não encontrado ou não tem role PO.").build();
+            }
+
+            // 6. Verificar se parcela existe na WorkSheet associada
             long parcelIdLong;
             try {
                 parcelIdLong = Long.parseLong(parcel.parcelId);
@@ -166,7 +244,7 @@ public class OperationResource {
             }
 
 
-            // 6. Verificar se parcela já está atribuída a esta OperationExecution
+            // 7. Verificar se parcela já está atribuída a esta OperationExecution
             Query<Entity> checkQuery = Query.newEntityQueryBuilder()
                     .setKind("ParcelOperationExecution")
                     .setFilter(StructuredQuery.CompositeFilter.and(
@@ -180,13 +258,14 @@ public class OperationResource {
                         .entity("Parcela " + parcel.parcelId + " já foi atribuída a esta operação.").build();
             }
 
-            // 7. Criar ParcelOperationExecution
+            // 8. Criar ParcelOperationExecution
             String parcelOpExecId = UUID.randomUUID().toString();
             Key newParcelKey = parcelExecutionKeyFactory.newKey(parcelOpExecId);
 
             Entity parcelExecEntity = Entity.newBuilder(newParcelKey)
                     .set("operationExecutionId", opExecId)
                     .set("parcelId", parcel.parcelId)
+                    .set("assignedUsername", parcel.assignedUsername)
                     .set("startDate", Timestamp.ofTimeSecondsAndNanos(now.getEpochSecond(), 0))
                     .set("lastActivityDate", Timestamp.ofTimeSecondsAndNanos(now.getEpochSecond(), 0))
                     .set("status", "ASSIGNED")
@@ -275,6 +354,16 @@ public class OperationResource {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("ParcelOperationExecution não pertence à OperationExecution especificada.").build();
         }
+
+        // 2.1. Verificar se o PO tem acesso a esta ParcelOperationExecution
+        if (parcelExecEntity.contains("assignedUsername")) {
+            String assignedUsername = parcelExecEntity.getString("assignedUsername");
+            if (assignedUsername != null && !assignedUsername.isEmpty() && !isSameUser(userId, assignedUsername)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Não tem permissão para iniciar atividades nesta parcela. Parcela atribuída a: " + assignedUsername).build();
+            }
+        }
+        // Se não tem assignedUsername (parcelas antigas), qualquer PO pode acessar
 
         // 3. Criar a Activity ligada à ParcelOperationExecution
         String activityId = UUID.randomUUID().toString();
@@ -383,6 +472,16 @@ public class OperationResource {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity("ParcelOperationExecution associada não encontrada.").build();
         }
+
+        // 4.1. Verificar se o PO tem acesso a esta ParcelOperationExecution
+        if (parcelExec.contains("assignedUsername")) {
+            String assignedUsername = parcelExec.getString("assignedUsername");
+            if (assignedUsername != null && !assignedUsername.isEmpty() && !isSameUser(userId, assignedUsername)) {
+                return Response.status(Response.Status.FORBIDDEN)
+                        .entity("Não tem permissão para parar atividades nesta parcela. Parcela atribuída a: " + assignedUsername).build();
+            }
+        }
+        // Se não tem assignedUsername (parcelas antigas), qualquer PO pode acessar
 
         // 5. Validar se a ParcelOperationExecution está ligada à OperationExecution do URL
         if (!parcelExec.getString("operationExecutionId").equals(operationExecutionId)) {
@@ -627,7 +726,7 @@ public class OperationResource {
             @HeaderParam("Authorization") String token,
             AddInfoRequest req
     ) {
-        if (!hasRole(token, Role.PO)) {
+        if (!hasRole(token, Role.PO) && !hasRole(token, Role.PRBO) && !hasRole(token, Role.SYSADMIN)) {
             return Response.status(Response.Status.FORBIDDEN)
                     .entity("Permissões insuficientes.").build();
         }
@@ -637,58 +736,104 @@ public class OperationResource {
                     .entity("Pedido inválido ou campos em falta.").build();
         }
 
-        // Procurar a atividade pelo ID
-        Key activityKey = actKeyFactory.newKey(req.activityId);
-        Entity activityEntity = datastore.get(activityKey);
-
-        if (activityEntity == null) {
-            return Response.status(Response.Status.NOT_FOUND)
-                    .entity("Atividade não encontrada.").build();
-        }
-
-        // Verificar se a atividade já terminou
-        if (!activityEntity.contains("endTime") || activityEntity.getTimestamp("endTime") == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("A atividade ainda está em curso.").build();
-        }
-
-        // Atualizar campos
-        Entity.Builder updatedActivityBuilder = Entity.newBuilder(activityEntity);
-
-        if (req.observations != null) {
-            updatedActivityBuilder.set("observations", req.observations);
-        }
-
-        if (req.gpsTracks != null && !req.gpsTracks.isEmpty()) {
-            // Guardar como string única separada por vírgulas (ou ajustar se preferires array)
-            updatedActivityBuilder.set("gpsTrack", String.join(",", req.gpsTracks));
-        }
-
-        if (req.photos != null && !req.photos.isEmpty()) {
-            updatedActivityBuilder.set(
-                    "photoUrls",
-                    ListValue.of(
-                            req.photos.stream()
-                                      .map(StringValue::of)
-                                      .collect(Collectors.toList())
-                    )
-            );
-        } else {
-            updatedActivityBuilder.set("photoUrls", ListValue.of(Collections.emptyList()));
-        }
-
-
         try {
-            datastore.put(updatedActivityBuilder.build());
-        } catch (DatastoreException e) {
-            return Response.serverError()
-                    .entity("Erro ao atualizar informações da atividade.").build();
-        }
+            System.out.println("=== AddActivityInfo Debug ===");
+            System.out.println("Activity ID: " + req.activityId);
+            System.out.println("Photos count: " + (req.photos != null ? req.photos.size() : 0));
+            
+            // Procurar a atividade pelo ID
+            Key activityKey = actKeyFactory.newKey(req.activityId);
+            Entity activityEntity = datastore.get(activityKey);
 
-        return Response.ok(Map.of(
-                "message", "Informações adicionadas à atividade.",
-                "activityId", req.activityId
-        )).build();
+            if (activityEntity == null) {
+                System.out.println("Activity not found: " + req.activityId);
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Atividade não encontrada.").build();
+            }
+
+            System.out.println("Activity found, checking if finished...");
+
+            // Verificar ownership para POs
+            String currentUser = getUsername(token);
+            if (hasRole(token, Role.PO) && !hasRole(token, Role.PRBO) && !hasRole(token, Role.SYSADMIN)) {
+                // Se é apenas PO, verificar se tem acesso à ParcelOperationExecution
+                String parcelOpExecId = activityEntity.getString("parcelOperationExecutionId");
+                if (parcelOpExecId != null) {
+                    Key parcelOpKey = parcelExecutionKeyFactory.newKey(parcelOpExecId);
+                    Entity parcelExec = datastore.get(parcelOpKey);
+                    
+                    if (parcelExec != null && parcelExec.contains("assignedUsername")) {
+                        String assignedUsername = parcelExec.getString("assignedUsername");
+                        if (assignedUsername != null && !assignedUsername.isEmpty() && !currentUser.equals(assignedUsername)) {
+                            return Response.status(Response.Status.FORBIDDEN)
+                                    .entity("Não tem permissão para adicionar informações a atividades nesta parcela. Parcela atribuída a: " + assignedUsername).build();
+                        }
+                    }
+                    // Se não tem assignedUsername (parcelas antigas), qualquer PO pode acessar
+                }
+            }
+
+            // Verificar se a atividade já terminou (só pode adicionar info se terminou)
+            if (!activityEntity.contains("endTime") || activityEntity.getTimestamp("endTime") == null) {
+                System.out.println("Activity is still running");
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("A atividade ainda está em curso. Só é possível adicionar informações após terminar.").build();
+            }
+
+            System.out.println("Activity is finished, updating...");
+
+            // Atualizar campos
+            Entity.Builder updatedActivityBuilder = Entity.newBuilder(activityEntity);
+
+            // Update observations if provided
+            if (req.observations != null && !req.observations.trim().isEmpty()) {
+                updatedActivityBuilder.set("observations", StringValue.of(req.observations));
+            }
+
+            // Update GPS tracks if provided
+            if (req.gpsTracks != null && !req.gpsTracks.isEmpty()) {
+                // Join GPS tracks with comma separator
+                String gpsTracksStr = String.join(",", req.gpsTracks);
+                updatedActivityBuilder.set("gpsTrack", StringValue.of(gpsTracksStr));
+            }
+
+            // Update photos if provided
+            if (req.photos != null && !req.photos.isEmpty()) {
+                System.out.println("Processing " + req.photos.size() + " photos");
+                List<Value<String>> photoValues = req.photos.stream()
+                        .filter(photo -> photo != null && !photo.trim().isEmpty())
+                        .map(photo -> StringValue.newBuilder(photo).setExcludeFromIndexes(true).build())
+                        .collect(Collectors.toList());
+                
+                System.out.println("Filtered to " + photoValues.size() + " valid photos");
+                
+                // Create ListValue with non-indexed string values
+                updatedActivityBuilder.set("photoUrls", ListValue.of(photoValues));
+            }
+
+            System.out.println("Saving to datastore...");
+
+            // Save the updated activity
+            datastore.put(updatedActivityBuilder.build());
+
+            System.out.println("Successfully saved!");
+
+            return Response.ok(Map.of(
+                    "message", "Informações adicionadas à atividade.",
+                    "activityId", req.activityId
+            )).build();
+
+        } catch (DatastoreException e) {
+            System.err.println("Erro no Datastore ao atualizar atividade: " + e.getMessage());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro interno ao atualizar informações da atividade: " + e.getMessage()).build();
+        } catch (Exception e) {
+            System.err.println("Erro geral ao atualizar atividade: " + e.getMessage());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro interno: " + e.getMessage()).build();
+        }
     }
 
 
@@ -807,6 +952,7 @@ public class OperationResource {
     public static class ParcelExecutionData {
         public String parcelId;
         public Double area;
+        public String assignedUsername; // Username do PO que será assigned
     }
 
     public static class StartActivityRequest {

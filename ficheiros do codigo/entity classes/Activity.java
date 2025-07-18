@@ -1,20 +1,21 @@
 package pt.unl.fct.di.apdc.trailblaze.util;
 
-import com.google.cloud.datastore.*;
-import com.google.cloud.Timestamp;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
 
+import com.google.cloud.Timestamp;
+import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.Entity;
+import com.google.cloud.datastore.Key;
+import com.google.cloud.datastore.ListValue;
+import com.google.cloud.datastore.StringValue;
+import com.google.cloud.datastore.Value;
 
 import jakarta.json.Json;
 import jakarta.json.JsonObject;
 import jakarta.json.JsonObjectBuilder;
-
-import java.util.*;
-
-import com.google.cloud.datastore.*;
-
-import java.util.Date;
-import java.util.List;
-import java.util.ArrayList;
 
 public class Activity {
     public String id;
@@ -58,8 +59,9 @@ public class Activity {
 
         List<Value<String>> photoList = new ArrayList<>();
         for (String url : photoUrls) {
-            photoList.add(StringValue.of(url));
+            photoList.add(StringValue.newBuilder(url).setExcludeFromIndexes(true).build());
         }
+        
         builder.set("photoUrls", ListValue.of(photoList));
 
         return builder.build();
@@ -91,6 +93,30 @@ public class Activity {
         return a;
     }
 
-  
-  
+    public JsonObject toJson() {
+        JsonObjectBuilder builder = Json.createObjectBuilder()
+            .add("id", id)
+            .add("parcelOperationExecutionId", parcelOperationExecutionId)
+            .add("operatorId", operatorId);
+            
+        if (startTime != null) {
+            builder.add("startTime", startTime.getTime());
+        }
+        
+        if (endTime != null) {
+            builder.add("endTime", endTime.getTime());
+        }
+        
+        builder.add("observations", observations != null ? observations : "");
+        builder.add("gpsTrack", gpsTrack != null ? gpsTrack : "");
+        
+        // Add photo URLs as JSON array
+        jakarta.json.JsonArrayBuilder photosArray = Json.createArrayBuilder();
+        for (String photoUrl : photoUrls) {
+            photosArray.add(photoUrl);
+        }
+        builder.add("photoUrls", photosArray);
+        
+        return builder.build();
+    }
 }

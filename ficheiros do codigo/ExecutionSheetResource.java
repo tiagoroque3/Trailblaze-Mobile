@@ -491,8 +491,9 @@ public class ExecutionSheetResource {
         boolean isOwner = sheet.associatedUser.equals(user);
         List<String> allowedRoles = Arrays.asList("PRBO", "SDVBO", "SGVBO");
         boolean hasAccess = allowedRoles.stream().anyMatch(role -> JwtUtil.userHasRole(token, role));
+        boolean isPO = JwtUtil.userHasRole(token, "PO");
 
-        if (!isOwner && !hasAccess) {
+        if (!isOwner && !hasAccess && !isPO) {
             return Response.status(Status.FORBIDDEN)
                     .entity("Sem permissões para visualizar esta folha")
                     .build();
@@ -512,35 +513,52 @@ public class ExecutionSheetResource {
             OperationExecution opExec = OperationExecution.fromEntity(opEnt);
 
             // 6) Carregar ParcelOperationExecutions
-            Query<Entity> parcelQuery = Query.newEntityQueryBuilder()
-                    .setKind("ParcelOperationExecution")
-                    .setFilter(StructuredQuery.PropertyFilter.eq("operationExecutionId", opExec.id))
-                    .build();
-            QueryResults<Entity> parcelResults = datastore.run(parcelQuery);
-
             List<Map<String, Object>> parcels = new ArrayList<>();
-
-            while (parcelResults.hasNext()) {
-                Entity parcelEnt = parcelResults.next();
-                ParcelOperationExecution parcel = ParcelOperationExecution.fromEntity(parcelEnt);
-
-                // 7) Carregar Activities
-                Query<Entity> actQuery = Query.newEntityQueryBuilder()
-                        .setKind("Activity")
-                        .setFilter(StructuredQuery.PropertyFilter.eq("parcelOperationExecutionId", parcel.id))
+            
+            if (isPO && !hasAccess && !isOwner) {
+                // Se é PO mas não tem acesso global, carregar parcelas atribuídas ao PO
+                Query<Entity> assignedParcelQuery = Query.newEntityQueryBuilder()
+                        .setKind("ParcelOperationExecution")
+                        .setFilter(StructuredQuery.CompositeFilter.and(
+                                PropertyFilter.eq("operationExecutionId", opExec.id),
+                                PropertyFilter.eq("assignedUsername", user)
+                        ))
                         .build();
-                QueryResults<Entity> actResults = datastore.run(actQuery);
-
-                List<Activity> activities = new ArrayList<>();
-                while (actResults.hasNext()) {
-                    activities.add(Activity.fromEntity(actResults.next()));
+                QueryResults<Entity> assignedResults = datastore.run(assignedParcelQuery);
+                
+                // Carregar parcelas sem atribuição (legacy)
+                Query<Entity> unassignedParcelQuery = Query.newEntityQueryBuilder()
+                        .setKind("ParcelOperationExecution")
+                        .setFilter(StructuredQuery.CompositeFilter.and(
+                                PropertyFilter.eq("operationExecutionId", opExec.id),
+                                PropertyFilter.isNull("assignedUsername")
+                        ))
+                        .build();
+                QueryResults<Entity> unassignedResults = datastore.run(unassignedParcelQuery);
+                
+                // Processar parcelas atribuídas
+                while (assignedResults.hasNext()) {
+                    Entity parcelEnt = assignedResults.next();
+                    parcels.add(processParcelEntity(parcelEnt));
                 }
-
-                // 8) Montar parcela
-                Map<String, Object> parcelBlock = new HashMap<>();
-                parcelBlock.put("parcelExecution", parcel);
-                parcelBlock.put("activities", activities);
-                parcels.add(parcelBlock);
+                
+                // Processar parcelas não atribuídas
+                while (unassignedResults.hasNext()) {
+                    Entity parcelEnt = unassignedResults.next();
+                    parcels.add(processParcelEntity(parcelEnt));
+                }
+            } else {
+                // Acesso global - mostrar todas as parcelas
+                Query<Entity> parcelQuery = Query.newEntityQueryBuilder()
+                        .setKind("ParcelOperationExecution")
+                        .setFilter(PropertyFilter.eq("operationExecutionId", opExec.id))
+                        .build();
+                QueryResults<Entity> parcelResults = datastore.run(parcelQuery);
+                
+                while (parcelResults.hasNext()) {
+                    Entity parcelEnt = parcelResults.next();
+                    parcels.add(processParcelEntity(parcelEnt));
+                }
             }
 
             // 9) Montar operação
@@ -556,6 +574,31 @@ public class ExecutionSheetResource {
         resp.put("operations", operations);
 
         return Response.ok(resp).build();
+    }
+
+    /**
+     * Helper method to process a ParcelOperationExecution entity and its activities
+     */
+    private Map<String, Object> processParcelEntity(Entity parcelEnt) {
+        ParcelOperationExecution parcel = ParcelOperationExecution.fromEntity(parcelEnt);
+
+        // Carregar Activities
+        Query<Entity> actQuery = Query.newEntityQueryBuilder()
+                .setKind("Activity")
+                .setFilter(StructuredQuery.PropertyFilter.eq("parcelOperationExecutionId", parcel.id))
+                .build();
+        QueryResults<Entity> actResults = datastore.run(actQuery);
+
+        List<Activity> activities = new ArrayList<>();
+        while (actResults.hasNext()) {
+            activities.add(Activity.fromEntity(actResults.next()));
+        }
+
+        // Montar parcela
+        Map<String, Object> parcelBlock = new HashMap<>();
+        parcelBlock.put("parcelExecution", parcel);
+        parcelBlock.put("activities", activities);
+        return parcelBlock;
     }
 
 

@@ -3,6 +3,7 @@ package pt.unl.fct.di.apdc.trailblaze.resources;
 import java.util.List;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.cloud.datastore.Datastore;
@@ -12,6 +13,8 @@ import com.google.cloud.datastore.EntityQuery;
 import com.google.cloud.datastore.Key;
 import com.google.cloud.datastore.Query;
 import com.google.cloud.datastore.StructuredQuery;
+import com.google.cloud.datastore.KeyFactory;
+import com.google.cloud.datastore.PathElement;
 
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
@@ -198,4 +201,78 @@ public class WorkSheetViewResource {
                ? claims.get("roles", List.class)
                : List.of(claims.get("role", String.class));
     }
+
+    /* =============================================================== *
+    *                   GET /fo/{id}/parcels/{parcelId}  
+    *           • Returns a single parcel with GeoJSON geometry              *
+    * =============================================================== */
+    @GET
+    @Path("/{id}/parcels/{parcelId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getParcelById(@HeaderParam("Authorization") String hdr,
+                          @PathParam("id") long worksheetId,
+                          @PathParam("parcelId") String parcelId) {
+    /* ---------- 1) Authentication & Authorization ---------- */
+    if (hdr == null || hdr.isBlank()) {
+        return Response.status(Response.Status.UNAUTHORIZED).build();
+    }
+    String jwt = token(hdr);
+    try {
+        List<String> roles = rolesFromToken(jwt);
+        if (roles.stream().noneMatch(r -> r.equals("PO") || r.equals("SMBO") || r.equals("SYSADMIN"))) {
+            return Response.status(Response.Status.FORBIDDEN).build();
+        }
+    } catch (Exception e) {
+        return Response.status(Response.Status.UNAUTHORIZED).build();
+    }
+
+    /* ---------- 2) Get Parcel ---------- */
+    Key parcelKey;
+    // CORRECTED: Create a KeyFactory for the "Parcel" kind and add the WorkSheet ancestor.
+    KeyFactory keyFactory = DS.newKeyFactory()
+                            .addAncestor(PathElement.of("WorkSheet", worksheetId))
+                            .setKind("Parcel");
+
+    // The parcelId from the path can be a numeric ID or a string name.
+    try {
+        long numericId = Long.parseLong(parcelId);
+        parcelKey = keyFactory.newKey(numericId);
+    } catch (NumberFormatException e) {
+        parcelKey = keyFactory.newKey(parcelId);
+    }
+
+    Entity parcel = DS.get(parcelKey);
+
+    if (parcel == null) {
+        return Response.status(Response.Status.NOT_FOUND).entity("Parcel with ID " + parcelId + " not found.").build();
+    }
+
+    /* ---------- 3) Build JSON Response ---------- */
+    ObjectNode parcelJson = MAPPER.createObjectNode();
+    String id = parcel.getKey().getName() != null ? parcel.getKey().getName() : String.valueOf(parcel.getKey().getId());
+    parcelJson.put("id", id);
+    parcelJson.put("parcelId", id);
+
+    if (parcel.contains("aigp")) parcelJson.put("aigp", parcel.getString("aigp"));
+    if (parcel.contains("ruralPropertyId")) parcelJson.put("ruralPropertyId", parcel.getString("ruralPropertyId"));
+    if (parcel.contains("polygonId")) {
+        long fetchedPolygonId = parcel.getLong("polygonId");
+        parcelJson.put("polygonId", String.valueOf(fetchedPolygonId));
+        }
+
+    // Correctly parse and add geometry as a JSON object
+    if (parcel.contains("geometry")) {
+        String geometryStr = parcel.getString("geometry");
+        try {
+            JsonNode geometryJson = MAPPER.readTree(geometryStr);
+            parcelJson.set("geometry", geometryJson);
+        } catch (Exception e) {
+            System.err.println("Could not parse geometry for parcel " + id + ": " + e.getMessage());
+            parcelJson.putNull("geometry");
+        }
+    }
+
+    return Response.ok(parcelJson.toString()).build();
+}
+    
 }

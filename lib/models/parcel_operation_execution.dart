@@ -7,6 +7,8 @@ class ParcelOperationExecution {
   final String parcelId;
   final String status;
   final String? assignedOperatorId;
+  final String?
+  assignedUsername; // Username do PO assigned a esta ParcelOperationExecution
   OperationExecution? operationExecution;
   List<Activity> activities;
 
@@ -16,6 +18,7 @@ class ParcelOperationExecution {
     required this.parcelId,
     required this.status,
     this.assignedOperatorId,
+    this.assignedUsername,
     this.operationExecution,
     this.activities = const [],
   });
@@ -27,7 +30,7 @@ class ParcelOperationExecution {
       parcelId: json['parcelId'] ?? '',
       status: json['status'] ?? 'PENDING',
       assignedOperatorId: json['assignedOperatorId'],
+      assignedUsername: json['assignedUsername'],
     );
   }
-  
 }

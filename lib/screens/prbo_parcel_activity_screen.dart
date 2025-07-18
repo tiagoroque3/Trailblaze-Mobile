@@ -48,7 +48,7 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
           jwtToken: widget.jwtToken,
         );
       } else {
-        // Return cached activities if no operation ID available
+        // Return cached activities if no execution ID available
         return widget.parcelOperationExecution.activities;
       }
     } catch (e) {
@@ -167,17 +167,20 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildDetailRow('Operation ID:', operation?.id ?? 'N/A'),
+                    _buildDetailRow('Execution ID:', operation?.id ?? 'N/A'),
                     const SizedBox(height: 8),
                     _buildDetailRow(
                       'Parcel ID:',
                       widget.parcelOperationExecution.parcelId,
                     ),
-                    const SizedBox(height: 8),
-                    _buildDetailRow(
-                      'Execution ID:',
-                      widget.parcelOperationExecution.id,
-                    ),
+                    if (widget.parcelOperationExecution.assignedUsername !=
+                        null) ...[
+                      const SizedBox(height: 8),
+                      _buildDetailRow(
+                        'Assigned to:',
+                        widget.parcelOperationExecution.assignedUsername!,
+                      ),
+                    ],
                   ],
                 ),
               ),

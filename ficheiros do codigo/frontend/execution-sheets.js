@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('User roles:', userRoles);
             if (!Array.isArray(userRoles) || userRoles.length === 0) userRoles = ['RU'];
             primaryRole = userRoles[0] || 'RU';
-            userRoleEl.textContent = primaryRole;
+            userRoleEl.textContent = userRoles.join(', ');
         } catch (error) {
             console.error('Error decoding token:', error);
             userRoles = ['RU'];
@@ -98,25 +98,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const hide = el => el && (el.style.display = 'none');
         const showEl = el => el && (el.style.display = 'block');
 
+        // Hide all elements initially
         [createBtn,exportBtn,createAction,assignAction,activitiesAction,exportAction,parcelsAction]
             .forEach(hide);
 
-        switch (primaryRole) {
-            case 'SYSADMIN':
-            case 'SYSBO':
-                [createBtn,createAction,assignAction,parcelsAction,exportBtn,exportAction,activitiesAction]
-                    .forEach(showEl);
-                break;
-            case 'SMBO':
-                [exportBtn,exportAction].forEach(showEl);
-                break;
-            case 'PRBO':
-                [createBtn,createAction,assignAction,parcelsAction,exportBtn,exportAction,activitiesAction]
-                    .forEach(showEl);
-                break;
-            case 'PO':
-                showEl(activitiesAction);
-                break;
+        // Show elements based on roles (using hasRole function to check multiple roles)
+        if (canManage()) {
+            [createBtn, createAction, assignAction, parcelsAction].forEach(showEl);
+        }
+        
+        if (canExport()) {
+            [exportBtn, exportAction].forEach(showEl);
+        }
+        
+        // Only show activities management if user has PO role (and not just PRBO)
+        if (canActivity()) {
+            showEl(activitiesAction);
         }
     }
 
@@ -168,9 +165,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (element) element.style.display = 'none';
     }
 
-    const canManage = () => ['SYSADMIN','SYSBO','PRBO'].includes(primaryRole);
-    const canExport = () => ['SYSADMIN','SYSBO','PRBO','SMBO','SDVBO'].includes(primaryRole);
-    const canActivity = () => ['SYSADMIN','SYSBO','PRBO','PO'].includes(primaryRole);
+    const canManage = () => hasRole('SYSADMIN') || hasRole('SYSBO') || hasRole('PRBO');
+    const canExport = () => hasRole('SYSADMIN') || hasRole('SYSBO') || hasRole('PRBO') || hasRole('SMBO') || hasRole('SDVBO');
+    const canActivity = () => hasRole('SYSADMIN') || hasRole('SYSBO') || hasRole('PO');
+    const canAddActivityInfo = () => canActivity(); // PO users can always add activity info, regardless of other roles
+
+    // Função para filtrar parcelas baseada no role do utilizador
+    function filterParcelsForUser(parcels) {
+        // Se é PO mas NÃO tem roles de gestão (SYSADMIN, SYSBO, PRBO), aplicar filtro restrito
+        if (hasRole('PO') && !hasRole('SYSADMIN') && !hasRole('SYSBO') && !hasRole('PRBO')) {
+            const filteredParcels = parcels.filter(parcel => {
+                const parcelExec = parcel.parcelExecution;
+                const assignedUsername = parcelExec.assignedUsername;
+                
+                const shouldShow = !assignedUsername || 
+                                 assignedUsername === '' || 
+                                 assignedUsername === username;
+                
+                return shouldShow;
+            });
+            
+            return filteredParcels;
+        }
+
+        // Para todos os outros casos (gestores, utilizadores sem PO, etc.), mostrar todas as parcelas
+        return parcels;
+    }
 
     function showLoading() {
         loading.classList.remove('hidden');
@@ -378,6 +398,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const parcels = operation.parcels || [];
         const progress = opExec.percentExecuted || 0;
 
+        // Filtrar parcelas para POs - só mostram as que lhes foram atribuídas ou parcelas legacy
+        const filteredParcels = filterParcelsForUser(parcels);
+
         return `
             <div class="operation-card">
                 <div class="operation-header">
@@ -425,7 +448,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 ` : ''}
                 
                 <div class="parcels-grid">
-                    ${parcels.map(parcel => renderParcelCard(parcel, opExec.id)).join('')}
+                    ${filteredParcels.map(parcel => renderParcelCard(parcel, opExec.id)).join('')}
+                    ${filteredParcels.length === 0 && parcels.length > 0 ? `
+                        <div class="no-parcels-message">
+                            <p style="color: #6c757d; font-style: italic; text-align: center; padding: 20px;">
+                                No parcels assigned to you in this operation
+                            </p>
+                        </div>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -450,6 +480,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         <label>Executed Area</label>
                         <span>${parcelExec.executedArea || 0} ha</span>
                     </div>
+                    <div class="detail-item">
+                        <label>Assigned PO</label>
+                        ${parcelExec.assignedUsername ? 
+                            `<span>${escapeHtml(parcelExec.assignedUsername)}</span>` : 
+                            `<span style="color: #6c757d; font-style: italic;">Not assigned (legacy parcel)</span>`
+                        }
+                    </div>
                 </div>
                 
                 <div class="parcel-actions" style="margin: 10px 0; text-align: center;">
@@ -470,35 +507,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderActivityItem(activity, operationId, parcelExecId) {
-    const isRunning = !activity.endTime;
-    const canStop = canActivity() && isRunning && activity.operatorId === username;
-    const canAddInfo = canActivity() && !isRunning;
+        const isRunning = !activity.endTime;
+        const canStop = canActivity() && isRunning && activity.operatorId === username;
+        const canAddInfo = canAddActivityInfo() && !isRunning;
 
-    return `
-        <div class="activity-item">
-            <div class="activity-header">
-                <div class="activity-operator">${activity.operatorId}</div>
-                <span class="activity-status ${isRunning ? 'activity-running' : 'activity-completed'}">
-                    ${isRunning ? 'Running' : 'Completed'}
-                </span>
-            </div>
-            <div style="font-size: 11px; color: #6c757d;">
-                <strong>ID:</strong> ${activity.id}<br>
-                Start: ${formatDateTime(activity.startTime)}
-                ${activity.endTime ? `<br>End: ${formatDateTime(activity.endTime)}` : ''}
-            </div>
-            ${activity.observations ? `
-                <div style="margin-top: 5px; font-size: 11px;">
-                    ${escapeHtml(activity.observations)}
+        return `
+            <div class="activity-item">
+                <div class="activity-header">
+                    <div class="activity-operator">${activity.operatorId}</div>
+                    <span class="activity-status ${isRunning ? 'activity-running' : 'activity-completed'}">
+                        ${isRunning ? 'Running' : 'Completed'}
+                    </span>
                 </div>
-            ` : ''}
-            <div class="activity-actions">
-                ${canStop ? `<button class="btn-stop" onclick="stopActivity('${operationId}', '${activity.id}')">Stop</button>` : ''}
-                ${canAddInfo ? `<button class="btn-info" onclick="addActivityInfo('${activity.id}')">Add Info</button>` : ''}
+                <div style="font-size: 11px; color: #6c757d;">
+                    <strong>ID:</strong> ${activity.id}<br>
+                    Start: ${formatDateTime(activity.startTime)}
+                    ${activity.endTime ? `<br>End: ${formatDateTime(activity.endTime)}` : ''}
+                </div>
+                ${activity.observations ? `
+                    <div style="margin-top: 5px; font-size: 11px;">
+                        ${escapeHtml(activity.observations)}
+                    </div>
+                ` : ''}
+                ${activity.photoUrls && activity.photoUrls.length > 0 ? `
+                    <div class="activity-photos" style="margin-top: 8px;">
+                        <div style="font-size: 10px; color: #6c757d; margin-bottom: 4px;">
+                            📷 ${activity.photoUrls.length} photo${activity.photoUrls.length > 1 ? 's' : ''}
+                        </div>
+                        <div class="photo-thumbnails">
+                            ${activity.photoUrls.slice(0, 3).map(url => `
+                                <img src="${url}" alt="Activity photo" class="activity-photo-thumb" 
+                                     onclick="viewPhotoModal('${url}')" title="Click to view full size">
+                            `).join('')}
+                            ${activity.photoUrls.length > 3 ? `
+                                <div class="photo-more" onclick="viewAllPhotos('${activity.id}', ${JSON.stringify(activity.photoUrls).replace(/"/g, '&quot;')})">
+                                    +${activity.photoUrls.length - 3} more
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+                <div class="activity-actions">
+                    ${canStop ? `<button class="btn-stop" onclick="stopActivity('${operationId}', '${activity.id}')">Stop</button>` : ''}
+                    ${canAddInfo ? `<button class="btn-info" onclick="addActivityInfo('${activity.id}')">Add Info</button>` : ''}
+                </div>
             </div>
-        </div>
-    `;
-}
+        `;
+    }
 
 
     function showSheetDetailsView() {
@@ -761,52 +816,47 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Assign operations (enhanced for PRBO users)
+    // Assign operations
     window.showAssignModal = async function(sheetId = null) {
         if (!canManage()) {
-            showMessage('Insufficient permissions - only PRBO users can assign parcels to operations');
+            showMessage('Insufficient permissions');
             return;
         }
 
         const selectedSheet = sheetId || (currentSheet ? currentSheet.executionSheet.id : '');
 
-        openModal('Assign Parcels to Operations', `
+        openModal('Assign Operations', `
             <form id="assign-form">
                 <div class="form-group">
                     <label for="assign-sheet-id">Execution Sheet ID *</label>
                     <input type="text" id="assign-sheet-id" name="executionSheetId" value="${selectedSheet}" required readonly>
-                    <small class="form-hint">The execution sheet where the operation will be assigned</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-operation-select">Operation *</label>
                     <select id="assign-operation-select" name="operationId" required>
                         <option value="">Loading operations...</option>
                     </select>
-                    <small class="form-hint">Select the operation that will be performed on the parcel</small>
+                    <small class="form-hint">Select an existing operation from this execution sheet</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-parcel-select">Parcel *</label>
                     <select id="assign-parcel-select" name="parcelId" required disabled>
                         <option value="">Select an operation first</option>
                     </select>
-                    <small class="form-hint">Select a parcel from the associated worksheet</small>
+                    <small class="form-hint">Select an existing parcel or add a new one</small>
+                </div>
+                <div class="form-group">
+                    <label for="assign-username">PO User ID *</label>
+                    <input type="text" id="assign-username" name="assignedUsername" required placeholder="User ID of the PO">
+                    <small class="form-hint">Enter the exact User ID of the PO to assign this parcel to</small>
                 </div>
                 <div class="form-group">
                     <label for="assign-area">Expected Area (ha) *</label>
-                    <input type="number" id="assign-area" name="area" step="0.01" min="0" required>
-                    <small class="form-hint">Expected area to be worked on this parcel</small>
-                </div>
-                <div class="form-group">
-                    <label for="assign-notes">Assignment Notes</label>
-                    <textarea id="assign-notes" name="notes" rows="3" placeholder="Optional notes about this assignment..."></textarea>
-                    <small class="form-hint">Optional notes or special instructions for this assignment</small>
+                    <input type="number" id="assign-area" name="area" step="0.01" required>
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="action-btn">
-                        <span class="btn-text">Assign Parcel</span>
-                        <span class="btn-loading" style="display: none;">Assigning...</span>
-                    </button>
+                    <button type="submit" class="action-btn">Assign</button>
                 </div>
             </form>
         `);
@@ -821,57 +871,20 @@ document.addEventListener('DOMContentLoaded', () => {
     async function assignOperation(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
-        
-        // Show loading state on button
-        const submitBtn = e.target.querySelector('button[type="submit"]');
-        const btnText = submitBtn.querySelector('.btn-text');
-        const btnLoading = submitBtn.querySelector('.btn-loading');
-        
-        btnText.style.display = 'none';
-        btnLoading.style.display = 'inline';
-        submitBtn.disabled = true;
-
         const data = {
             executionSheetId: formData.get('executionSheetId'),
             operationId: formData.get('operationId'),
             parcelExecutions: [{
                 parcelId: formData.get('parcelId'),
-                area: parseFloat(formData.get('area'))
-            }],
-            expectedTotalArea: parseFloat(formData.get('area')),
-            notes: formData.get('notes') || ''
+                area: parseFloat(formData.get('area')),
+                assignedUsername: formData.get('assignedUsername')
+            }]
         };
-
-        // Validation
-        if (!data.operationId) {
-            showMessage('Please select an operation', 'error');
-            btnText.style.display = 'inline';
-            btnLoading.style.display = 'none';
-            submitBtn.disabled = false;
-            return;
-        }
-
-        if (!data.parcelExecutions[0].parcelId) {
-            showMessage('Please select a parcel', 'error');
-            btnText.style.display = 'inline';
-            btnLoading.style.display = 'none';
-            submitBtn.disabled = false;
-            return;
-        }
-
-        if (!data.parcelExecutions[0].area || data.parcelExecutions[0].area <= 0) {
-            showMessage('Please enter a valid area greater than 0', 'error');
-            btnText.style.display = 'inline';
-            btnLoading.style.display = 'none';
-            submitBtn.disabled = false;
-            return;
-        }
 
         showLoading();
         closeModal();
 
         try {
-            console.log('Sending assign request:', data);
             const response = await fetch(`${BASE_URL}/operations/assign`, {
                 method: 'POST',
                 headers: authHeaders(),
@@ -879,30 +892,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const result = await response.text();
-            
             if (response.ok) {
-                showMessage(`Parcel ${data.parcelExecutions[0].parcelId} successfully assigned to operation ${data.operationId}!`, 'success');
-                
-                // Refresh the current view
+                showMessage('Operation assigned successfully!', 'success');
                 if (currentSheet) {
-                    await viewSheetDetails(currentSheet.executionSheet.id);
+                    viewSheetDetails(currentSheet.executionSheet.id);
                 }
-                await loadExecutionSheets();
-                
+                loadExecutionSheets();
             } else {
-                let errorMessage = 'Error assigning parcel to operation';
-                try {
-                    const errorData = JSON.parse(result);
-                    errorMessage = errorData.message || errorData.error || result;
-                } catch {
-                    errorMessage = result || errorMessage;
-                }
-                console.error('Assignment error:', errorMessage);
-                showMessage(errorMessage, 'error');
+                showMessage(result || 'Error assigning operation');
             }
         } catch (error) {
             console.error('Error assigning operation:', error);
-            showMessage('Connection error - please check your network and try again', 'error');
+            showMessage('Connection error');
         } finally {
             hideLoading();
         }
@@ -974,7 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add activity info
     window.addActivityInfo = function(activityId) {
-        if (!canActivity()) {
+        if (!canAddActivityInfo()) {
             showMessage('Insufficient permissions');
             return;
         }
@@ -992,8 +993,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="upload-text">Click to upload photos</div>
                         <div class="upload-hint">JPG, PNG files up to 10MB each</div>
                     </div>
-                    <input type="file" id="photo-input" multiple accept="image/*" style="display: none;">
-                    <div id="photo-list"></div>
+                    <input type="file" id="photo-input" multiple accept="image/jpeg,image/png,image/jpg" style="display: none;">
+                    <div id="photo-list" class="photo-preview-container"></div>
+                    <div id="photo-upload-progress" class="upload-progress" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text">Uploading photos...</div>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label for="activity-gps">GPS Track</label>
@@ -1006,26 +1013,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
-                    <button type="submit" class="action-btn">Save</button>
+                    <button type="submit" class="action-btn" id="save-activity-btn">Save</button>
                 </div>
             </form>
         `);
 
         // Handle file uploads
-        const photoInput = document.getElementById('photo-input');
-        const gpsInput = document.getElementById('gps-input');
-        const photoList = document.getElementById('photo-list');
-        const gpsFile = document.getElementById('gps-file');
-
-        photoInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            photoList.innerHTML = files.map(f => `<div>${f.name}</div>`).join('');
-        });
-
-        gpsInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            gpsFile.innerHTML = file ? `<div>${file.name}</div>` : '';
-        });
+        setupPhotoUpload();
+        setupGpsUpload();
 
         document.getElementById('activity-info-form').addEventListener('submit', saveActivityInfo);
     };
@@ -1033,41 +1028,195 @@ document.addEventListener('DOMContentLoaded', () => {
     async function saveActivityInfo(e) {
         e.preventDefault();
         const formData = new FormData(e.target);
-
-        // For now, we'll just save the observations
-        // In a real implementation, you'd upload files to a storage service first
-        const data = {
-            activityId: formData.get('activityId'),
-            observations: formData.get('observations'),
-            photos: [], // Would contain uploaded photo URLs
-            gpsTracks: [] // Would contain uploaded GPS track URLs
-        };
-
-        showLoading();
-        closeModal();
+        const saveBtn = document.getElementById('save-activity-btn');
+        
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
 
         try {
+            // Get uploaded photo URLs from the photo list
+            const uploadedPhotos = Array.from(document.querySelectorAll('#photo-list .photo-item'))
+                .map(item => item.dataset.photoUrl)
+                .filter(url => url);
+
+            // Get GPS track from uploaded file (if any)
+            const gpsTrackData = document.getElementById('gps-file').dataset.gpsContent || '';
+
+            const data = {
+                activityId: formData.get('activityId'),
+                observations: formData.get('observations') || '',
+                photos: uploadedPhotos,
+                gpsTracks: gpsTrackData ? [gpsTrackData] : []
+            };
+
+            console.log('Sending activity info:', data);
+
+            showLoading();
+            closeModal();
+
             const response = await fetch(`${BASE_URL}/operations/activity/addinfo`, {
                 method: 'POST',
                 headers: authHeaders(),
                 body: JSON.stringify(data)
             });
 
-            const result = await response.text();
+            console.log('Response status:', response.status);
+            console.log('Response headers:', response.headers);
+
             if (response.ok) {
+                const result = await response.json();
+                console.log('Success response:', result);
                 showMessage('Activity information saved successfully!', 'success');
                 if (currentSheet) {
                     viewSheetDetails(currentSheet.executionSheet.id);
                 }
             } else {
-                showMessage(result || 'Error saving activity information');
+                const contentType = response.headers.get('content-type');
+                let errorMessage;
+                
+                try {
+                    // Try to read as text first since it's more reliable
+                    const responseText = await response.text();
+                    
+                    if (contentType && contentType.includes('application/json') && responseText.trim().startsWith('{')) {
+                        const errorData = JSON.parse(responseText);
+                        errorMessage = errorData.message || errorData.error || 'Unknown error';
+                    } else {
+                        errorMessage = responseText || 'Server error occurred';
+                    }
+                } catch (e) {
+                    errorMessage = `Server returned status ${response.status}`;
+                }
+                
+                console.error('Error response:', response.status, errorMessage);
+                showMessage(`Error saving activity information: ${errorMessage}`, 'error');
             }
         } catch (error) {
-            console.error('Error saving activity information:', error);
-            showMessage('Connection error');
+            console.error('Network error saving activity information:', error);
+            showMessage('Connection error: ' + error.message, 'error');
         } finally {
             hideLoading();
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save';
         }
+    }
+
+    // Setup photo upload functionality (simplified base64 approach)
+    function setupPhotoUpload() {
+        const photoInput = document.getElementById('photo-input');
+        const photoList = document.getElementById('photo-list');
+        const progressContainer = document.getElementById('photo-upload-progress');
+        const progressBar = progressContainer.querySelector('.progress-fill');
+        const progressText = progressContainer.querySelector('.progress-text');
+
+        let uploadedPhotos = [];
+
+        photoInput.addEventListener('change', async (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // Validate files
+            const invalidFiles = files.filter(file => {
+                const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+                const maxSize = 5 * 1024 * 1024; // 5MB limit for base64
+                return !validTypes.includes(file.type) || file.size > maxSize;
+            });
+
+            if (invalidFiles.length > 0) {
+                showMessage('Some files are invalid. Please upload JPG/PNG files under 5MB.', 'error');
+                return;
+            }
+
+            progressContainer.style.display = 'block';
+            let completed = 0;
+
+            try {
+                for (const file of files) {
+                    progressText.textContent = `Processing ${file.name}...`;
+                    
+                    // Convert to base64
+                    const base64Url = await convertToBase64(file);
+                    
+                    uploadedPhotos.push({
+                        name: file.name,
+                        url: base64Url
+                    });
+
+                    completed++;
+                    const progress = (completed / files.length) * 100;
+                    progressBar.style.width = `${progress}%`;
+                }
+
+                // Update photo list display
+                photoList.innerHTML = uploadedPhotos.map(photo => `
+                    <div class="photo-item" data-photo-url="${photo.url}">
+                        <img src="${photo.url}" alt="${photo.name}" class="photo-thumbnail">
+                        <div class="photo-name">${photo.name}</div>
+                        <button type="button" class="remove-photo" onclick="removePhoto(this, '${photo.url}')">×</button>
+                    </div>
+                `).join('');
+
+                progressText.textContent = 'Processing completed!';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 2000);
+
+            } catch (error) {
+                console.error('Processing error:', error);
+                showMessage(`Processing failed: ${error.message}`, 'error');
+                progressContainer.style.display = 'none';
+            }
+
+            // Clear the input for future uploads
+            photoInput.value = '';
+        });
+
+        // Remove photo function
+        window.removePhoto = function(button, photoUrl) {
+            const photoItem = button.closest('.photo-item');
+            photoItem.remove();
+            uploadedPhotos = uploadedPhotos.filter(photo => photo.url !== photoUrl);
+        };
+    }
+
+    // Helper function to convert file to base64
+    function convertToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = error => reject(error);
+        });
+    }
+
+    // Setup GPS upload functionality
+    function setupGpsUpload() {
+        const gpsInput = document.getElementById('gps-input');
+        const gpsFile = document.getElementById('gps-file');
+
+        gpsInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) {
+                gpsFile.innerHTML = '';
+                gpsFile.dataset.gpsContent = '';
+                return;
+            }
+
+            if (!file.name.toLowerCase().endsWith('.gpx')) {
+                showMessage('Please upload a valid GPX file.', 'error');
+                return;
+            }
+
+            try {
+                // For GPS files, we'll read and store the content directly
+                const text = await file.text();
+                gpsFile.innerHTML = `<div class="gps-file-item">📍 ${file.name}</div>`;
+                gpsFile.dataset.gpsContent = text;
+            } catch (error) {
+                console.error('GPS file read error:', error);
+                showMessage('Failed to read GPS file.', 'error');
+            }
+        });
     }
 
     // Export sheet
@@ -1403,7 +1552,7 @@ function showActivitiesModal(title, activities, operationId, parcelId = null) {
                     <div class="activity-detail-actions">
                         ${canActivity() && !endTime && operatorId === username ?
                             `<button class="btn-stop" onclick="stopActivityFromModal('${operationId}', '${activityId}')">Stop Activity</button>` : ''}
-                        ${canActivity() && endTime ?
+                        ${canAddActivityInfo() && endTime ?
                             `<button class="btn-info" onclick="addActivityInfoFromModal('${activityId}')">Add Info</button>` : ''}
                     </div>
                 </div>
@@ -1574,7 +1723,7 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
         });
 
         if (!response.ok) {
-            showMessage('Erro ao carregar parcelas da operação');
+            showMessage('Error loading parcels for operation');
             return;
         }
 
@@ -1601,7 +1750,7 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
     } catch (err) {
         console.error('Erro ao carregar parcelas:', err);
-        showMessage('Erro de ligação');
+        showMessage('Connection error');
     } finally {
         hideLoading();
     }
@@ -1646,17 +1795,9 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
     }
 
     async function loadOperationsForAssign(sheetId) {
-        if (!sheetId) {
-            console.warn('No sheet ID provided for loading operations');
-            return;
-        }
+        if (!sheetId) return;
 
-        const operationSelect = document.getElementById('assign-operation-select');
-        
         try {
-            operationSelect.innerHTML = '<option value="">Loading operations...</option>';
-            operationSelect.disabled = true;
-
             const response = await fetch(`${BASE_URL}/fe/${sheetId}`, {
                 headers: authHeaders()
             });
@@ -1665,58 +1806,36 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
                 const sheetData = await response.json();
                 const operations = sheetData.operations || [];
                 
+                const operationSelect = document.getElementById('assign-operation-select');
                 operationSelect.innerHTML = '<option value="">Select an operation</option>';
                 
-                if (operations.length === 0) {
-                    const noOpsOption = document.createElement('option');
-                    noOpsOption.value = '';
-                    noOpsOption.textContent = 'No operations available in this execution sheet';
-                    noOpsOption.disabled = true;
-                    operationSelect.appendChild(noOpsOption);
-                } else {
-                    operations.forEach(op => {
-                        const opExec = op.operationExecution;
-                        const option = document.createElement('option');
-                        option.value = opExec.operationId;
-                        option.textContent = `Operation ${opExec.operationId} (${Math.round(opExec.percentExecuted || 0)}% complete)`;
-                        option.dataset.executionId = opExec.id;
-                        option.dataset.expectedArea = opExec.expectedTotalArea || 0;
-                        operationSelect.appendChild(option);
-                    });
-                }
-                
-                operationSelect.disabled = false;
+                operations.forEach(op => {
+                    const opExec = op.operationExecution;
+                    const option = document.createElement('option');
+                    option.value = opExec.operationId;
+                    option.textContent = `${opExec.operationId} (Execution ID: ${opExec.id})`;
+                    option.dataset.executionId = opExec.id;
+                    operationSelect.appendChild(option);
+                });
             } else {
-                operationSelect.innerHTML = '<option value="">Error loading operations</option>';
-                const errorText = await response.text();
-                console.error('Error loading operations:', errorText);
-                showMessage('Error loading operations for this execution sheet', 'error');
+                showMessage('Error loading operations');
             }
         } catch (error) {
             console.error('Error loading operations for assign:', error);
-            operationSelect.innerHTML = '<option value="">Connection error</option>';
-            showMessage('Network error while loading operations', 'error');
+            showMessage('Error loading operations');
         }
     }
 
     async function loadParcelsForOperation(operationId) {
-        const parcelSelect = document.getElementById('assign-parcel-select');
-        
-        if (!operationId) {
-            parcelSelect.innerHTML = '<option value="">Select an operation first</option>';
-            parcelSelect.disabled = true;
-            return;
-        }
-
         try {
+            const parcelSelect = document.getElementById('assign-parcel-select');
             parcelSelect.innerHTML = '<option value="">Loading parcels...</option>';
-            parcelSelect.disabled = true;
 
             // Get the worksheetId from the current execution sheet
             const sheetId = document.getElementById('assign-sheet-id').value;
             if (!sheetId) {
                 parcelSelect.innerHTML = '<option value="">No execution sheet selected</option>';
-                showMessage('No execution sheet selected', 'error');
+                showMessage('No execution sheet selected');
                 return;
             }
 
@@ -1727,7 +1846,7 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
             if (!sheetResponse.ok) {
                 parcelSelect.innerHTML = '<option value="">Error loading execution sheet</option>';
-                showMessage('Error loading execution sheet data', 'error');
+                showMessage('Error loading execution sheet data');
                 return;
             }
 
@@ -1736,88 +1855,8 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
             if (!worksheetId) {
                 parcelSelect.innerHTML = '<option value="">No worksheet found</option>';
-                showMessage('Execution sheet has no associated worksheet', 'error');
+                showMessage('Execution sheet has no associated worksheet');
                 return;
-            }
-
-            // Now get all parcels that belong to the same worksheet
-            const parcelsResponse = await fetch(`${BASE_URL}/fo/${worksheetId}/parcels`, {
-                headers: authHeaders()
-            });
-
-            if (!parcelsResponse.ok) {
-                parcelSelect.innerHTML = '<option value="">Error loading parcels</option>';
-                const errorText = await parcelsResponse.text();
-                console.error('Error loading parcels:', errorText);
-                showMessage('Error loading parcels from worksheet', 'error');
-                return;
-            }
-
-            const parcels = await parcelsResponse.json();
-            
-            // Clear and populate the parcel dropdown
-            parcelSelect.innerHTML = '<option value="">Select a parcel</option>';
-            
-            if (parcels && parcels.length > 0) {
-                // Filter out parcels that are already assigned to this operation
-                const assignedParcels = await getAssignedParcelsForOperation(operationId);
-                const availableParcels = parcels.filter(parcel => 
-                    !assignedParcels.includes(String(parcel.id || parcel.parcelId))
-                );
-                
-                if (availableParcels.length === 0) {
-                    const noParcelsOption = document.createElement('option');
-                    noParcelsOption.value = '';
-                    noParcelsOption.textContent = 'All parcels in this worksheet are already assigned to this operation';
-                    noParcelsOption.disabled = true;
-                    parcelSelect.appendChild(noParcelsOption);
-                } else {
-                    availableParcels.forEach(parcel => {
-                        const option = document.createElement('option');
-                        option.value = parcel.id || parcel.parcelId;
-                        option.textContent = `Parcel ${parcel.id || parcel.parcelId} - ${parcel.aigp || 'N/A'} (${parcel.ruralPropertyId || 'N/A'})`;
-                        option.dataset.area = parcel.area || 0;
-                        parcelSelect.appendChild(option);
-                    });
-                    
-                    // Auto-fill area when parcel is selected
-                    parcelSelect.addEventListener('change', function() {
-                        const selectedOption = this.options[this.selectedIndex];
-                        const areaInput = document.getElementById('assign-area');
-                        if (selectedOption.dataset.area && !areaInput.value) {
-                            areaInput.value = selectedOption.dataset.area;
-                        }
-                    });
-                }
-                
-            } else {
-                const noParcelOption = document.createElement('option');
-                noParcelOption.value = '';
-                noParcelOption.textContent = 'No parcels available in this worksheet';
-                noParcelOption.disabled = true;
-                parcelSelect.appendChild(noParcelOption);
-            }
-
-            parcelSelect.disabled = false;
-
-        } catch (error) {
-            console.error('Error loading parcels for operation:', error);
-            parcelSelect.innerHTML = '<option value="">Error loading parcels</option>';
-            showMessage('Error loading parcels', 'error');
-        }
-    }
-    
-    // Helper function to get parcels already assigned to an operation
-    async function getAssignedParcelsForOperation(operationId) {
-        try {
-            // This would need to be implemented in the backend if not already available
-            // For now, return empty array
-            return [];
-        } catch (error) {
-            console.error('Error getting assigned parcels:', error);
-            return [];
-        }
-    }
             }
 
             // Now get all parcels that belong to the same worksheet
@@ -1857,4 +1896,27 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
             showMessage('Error loading parcels');
         }
     }
+
+    // Photo viewing functions
+    window.viewPhotoModal = function(photoUrl) {
+        openModal('Photo View', `
+            <div class="photo-viewer">
+                <img src="${photoUrl}" alt="Activity photo" style="max-width: 100%; max-height: 80vh; border-radius: 8px;">
+            </div>
+        `);
+    };
+
+    window.viewAllPhotos = function(activityId, photoUrls) {
+        const photosHtml = photoUrls.map((url, index) => `
+            <div class="photo-gallery-item">
+                <img src="${url}" alt="Activity photo ${index + 1}" class="gallery-photo" onclick="viewPhotoModal('${url}')">
+            </div>
+        `).join('');
+
+        openModal('All Photos', `
+            <div class="photo-gallery">
+                ${photosHtml}
+            </div>
+        `);
+    };
 });

@@ -423,6 +423,17 @@ class _PrboExecutionSheetDetailsScreenState
                             color: Colors.grey.shade600,
                           ),
                         ),
+                        if (parcel.assignedUsername != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Assigned to: ${parcel.assignedUsername}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

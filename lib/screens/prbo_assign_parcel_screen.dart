@@ -24,6 +24,7 @@ class PrboAssignParcelScreen extends StatefulWidget {
 class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
   final _formKey = GlobalKey<FormState>();
   final _areaController = TextEditingController();
+  final _assignedUsernameController = TextEditingController();
 
   bool _isLoading = false;
   List<Map<String, dynamic>> _operations = [];
@@ -43,6 +44,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
   @override
   void dispose() {
     _areaController.dispose();
+    _assignedUsernameController.dispose();
     super.dispose();
   }
 
@@ -67,7 +69,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
             'operationId': opExec['operationId'],
             'executionId': opExec['id'],
             'displayName':
-                'Operation ${opExec['operationId']} (Execution ID: ${opExec['id']})',
+                'Execution ID: ${opExec['id']}',
           };
         }).toList();
         _operationsLoading = false;
@@ -161,6 +163,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
           {
             'parcelId': _selectedParcelId!,
             'area': double.parse(_areaController.text),
+            'assignedUsername': _assignedUsernameController.text.trim(),
           },
         ],
       );
@@ -262,28 +265,50 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                         )
                       else if (_operations.isEmpty)
                         Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(16.0),
                           decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            border: Border.all(color: Colors.orange.shade200),
+                            color: Colors.blue.shade50,
+                            border: Border.all(color: Colors.blue.shade200),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            'No operations found for this execution sheet',
-                            style: TextStyle(color: Colors.orange),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.info_outline,
+                                color: Colors.blue.shade600,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'No operations found for this execution sheet',
+                                  style: TextStyle(
+                                    color: Colors.blue.shade800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else
                         DropdownButtonFormField<String>(
                           value: _selectedOperationId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
                             hintText: 'Select an operation',
+                            prefixIcon: const Icon(Icons.work_outline),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
                           items: _operations.map((operation) {
                             return DropdownMenuItem<String>(
                               value: operation['operationId'],
-                              child: Text(operation['displayName']),
+                              child: Text(
+                                operation['displayName'] ?? 'Unknown Operation',
+                                style: const TextStyle(fontSize: 14),
+                              ),
                             );
                           }).toList(),
                           onChanged: (value) {
@@ -339,39 +364,74 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                         )
                       else if (_selectedOperationId == null)
                         Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(16.0),
                           decoration: BoxDecoration(
                             color: Colors.grey.shade50,
-                            border: Border.all(color: Colors.grey.shade200),
+                            border: Border.all(color: Colors.grey.shade300),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: const Text(
-                            'Select an operation first',
-                            style: TextStyle(color: Colors.grey),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.arrow_upward,
+                                color: Colors.grey.shade600,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'Select an operation first',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else if (_parcels.isEmpty)
                         Container(
+                          width: double.infinity,
                           padding: const EdgeInsets.all(16.0),
                           decoration: BoxDecoration(
                             color: Colors.orange.shade50,
                             border: Border.all(color: Colors.orange.shade200),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text(
-                            widget.assignedParcelIds != null &&
-                                    widget.assignedParcelIds!.isNotEmpty
-                                ? 'No unassigned parcels available in this worksheet'
-                                : 'No parcels available in this worksheet',
-                            style: const TextStyle(color: Colors.orange),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.warning_amber_outlined,
+                                color: Colors.orange.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  widget.assignedParcelIds != null &&
+                                          widget.assignedParcelIds!.isNotEmpty
+                                      ? 'No unassigned parcels available in this worksheet'
+                                      : 'No parcels available in this worksheet',
+                                  style: TextStyle(
+                                    color: Colors.orange.shade800,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       else
                         DropdownButtonFormField<String>(
                           value: _selectedParcelId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
                             hintText: 'Select a parcel',
+                            prefixIcon: const Icon(Icons.landscape_outlined),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
                           items: _parcels.map((parcel) {
                             final parcelId =
@@ -450,10 +510,13 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
                         ),
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
                           hintText: 'Enter expected area in hectares',
                           suffixText: 'ha',
+                          prefixIcon: const Icon(Icons.square_foot_outlined),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
@@ -462,6 +525,44 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
                           final area = double.tryParse(value);
                           if (area == null || area <= 0) {
                             return 'Please enter a valid positive number';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Assigned Username Input
+              Card(
+                elevation: 2,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Assigned Username *',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _assignedUsernameController,
+                        decoration: InputDecoration(
+                          border: const OutlineInputBorder(),
+                          hintText:
+                              'Enter username to assign this parcel operation',
+                          prefixIcon: const Icon(Icons.person_outline),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter the username to assign this parcel operation';
                           }
                           return null;
                         },

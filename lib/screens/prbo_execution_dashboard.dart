@@ -25,7 +25,6 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
   bool _isLoading = true;
   String? _error;
   String _selectedFilter = 'all';
-  bool _showOnlyMine = false;
 
   final Map<String, String> _filterOptions = {
     'all': 'All Sheets',
@@ -67,12 +66,7 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
   }
 
   void _applyFilters() {
-    _filteredSheets = _allSheets.where((sheet) {
-      if (_showOnlyMine && sheet.associatedUser != widget.username) {
-        return false;
-      }
-      return true;
-    }).toList();
+    _filteredSheets = _allSheets;
   }
 
   void _onFilterChanged(String? newFilter) {
@@ -82,13 +76,6 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
       });
       _loadExecutionSheets();
     }
-  }
-
-  void _onMineFilterChanged(bool? value) {
-    setState(() {
-      _showOnlyMine = value ?? false;
-      _applyFilters();
-    });
   }
 
   void _showCreateSheet() {
@@ -108,7 +95,9 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Execution Sheet'),
-        content: Text('Are you sure you want to delete "${sheet.title}"? This action cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete "${sheet.title}"? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -129,14 +118,16 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
           sheetId: sheet.id,
           jwtToken: widget.jwtToken,
         );
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Execution sheet "${sheet.title}" deleted successfully'),
+            content: Text(
+              'Execution sheet "${sheet.title}" deleted successfully',
+            ),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         _loadExecutionSheets();
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -204,14 +195,6 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                CheckboxListTile(
-                  title: const Text('Show only sheets assigned to me'),
-                  value: _showOnlyMine,
-                  onChanged: _onMineFilterChanged,
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
                 ),
               ],
             ),
@@ -282,18 +265,14 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
             ),
             const SizedBox(height: 16),
             Text(
-              _showOnlyMine
-                  ? 'No execution sheets assigned to you'
-                  : 'No execution sheets found',
+              'No execution sheets found',
               style: Theme.of(
                 context,
               ).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 8),
             Text(
-              _showOnlyMine
-                  ? 'Try changing the filter or create a new execution sheet'
-                  : 'Try changing the filter or create your first execution sheet',
+              'Try changing the filter or create your first execution sheet',
               textAlign: TextAlign.center,
               style: Theme.of(
                 context,
@@ -370,11 +349,12 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => PrboCreateExecutionSheetScreen(
-                              jwtToken: widget.jwtToken,
-                              username: widget.username,
-                              editingSheet: sheet,
-                            ),
+                            builder: (context) =>
+                                PrboCreateExecutionSheetScreen(
+                                  jwtToken: widget.jwtToken,
+                                  username: widget.username,
+                                  editingSheet: sheet,
+                                ),
                           ),
                         ).then((_) => _loadExecutionSheets());
                       } else if (value == 'delete') {
