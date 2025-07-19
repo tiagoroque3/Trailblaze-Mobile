@@ -11,6 +11,7 @@ import 'package:trailblaze_app/screens/po_execution_dashboard.dart';
 import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
 import 'package:trailblaze_app/screens/events_screen.dart';
+import 'package:trailblaze_app/screens/trails_screen.dart';
 import 'package:trailblaze_app/utils/role_manager.dart';
 
 class MainAppScreen extends StatefulWidget {
@@ -321,6 +322,30 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     context,
                     MaterialPageRoute(
                       builder: (_) => EventsScreen(
+                        username: widget.username!,
+                        jwtToken: widget.jwtToken!,
+                        userRoles: _displayRoles,
+                      ),
+                    ),
+                  );
+                } else if (!widget.isLoggedIn) {
+                  _showGuestLoginDialog();
+                } else {
+                  _showRoleRequiredDialog('RU');
+                }
+              },
+            ),
+            // Trails
+            ListTile(
+              leading: const Icon(Icons.route),
+              title: const Text('Trails'),
+              onTap: () {
+                Navigator.pop(context);
+                if (widget.isLoggedIn && _displayRoles?.contains('RU') == true) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => TrailsScreen(
                         username: widget.username!,
                         jwtToken: widget.jwtToken!,
                         userRoles: _displayRoles,
