@@ -18,10 +18,12 @@ class PoActivityManagementScreen extends StatefulWidget {
   });
 
   @override
-  State<PoActivityManagementScreen> createState() => _PoActivityManagementScreenState();
+  State<PoActivityManagementScreen> createState() =>
+      _PoActivityManagementScreenState();
 }
 
-class _PoActivityManagementScreenState extends State<PoActivityManagementScreen> {
+class _PoActivityManagementScreenState
+    extends State<PoActivityManagementScreen> {
   final TextEditingController _observationsController = TextEditingController();
   bool _isLoading = false;
   List<String> _photoUrls = [];
@@ -47,7 +49,9 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
     try {
       // First stop the activity
       await ExecutionService.stopActivity(
-        operationExecutionId: widget.activity.parcelOperationExecutionId, // This might need adjustment based on your data structure
+        operationExecutionId: widget
+            .activity
+            .parcelOperationExecutionId, // This might need adjustment based on your data structure
         activityId: widget.activity.id,
         jwtToken: widget.jwtToken,
       );
@@ -77,7 +81,9 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
       final success = await ExecutionService.addActivityInfo(
         activityId: widget.activity.id,
         jwtToken: widget.jwtToken,
-        observations: _observationsController.text.isNotEmpty ? _observationsController.text : null,
+        observations: _observationsController.text.isNotEmpty
+            ? _observationsController.text
+            : null,
         photoUrls: _photoUrls.isNotEmpty ? _photoUrls : null,
       );
 
@@ -142,53 +148,64 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                         children: [
                           Text(
                             'Activity Information',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: AppColors.primaryGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                           const SizedBox(height: 16),
-                          
+
                           _buildInfoRow(
                             'Date',
-                            DateFormat('MMM dd, yyyy').format(widget.activity.startTime),
+                            DateFormat(
+                              'MMM dd, yyyy',
+                            ).format(widget.activity.startTime),
                             Icons.calendar_today,
                           ),
                           const SizedBox(height: 8),
-                          
+
                           _buildInfoRow(
                             'Start Time',
-                            DateFormat('HH:mm').format(widget.activity.startTime),
+                            DateFormat(
+                              'HH:mm',
+                            ).format(widget.activity.startTime),
                             Icons.play_arrow,
                           ),
                           const SizedBox(height: 8),
-                          
+
                           _buildInfoRow(
                             'End Time',
-                            widget.isOngoing ? 'Ongoing' : DateFormat('HH:mm').format(widget.activity.endTime!),
+                            widget.isOngoing
+                                ? 'Ongoing'
+                                : DateFormat(
+                                    'HH:mm',
+                                  ).format(widget.activity.endTime!),
                             widget.isOngoing ? Icons.timer : Icons.stop,
                           ),
                           const SizedBox(height: 8),
-                          
+
                           _buildInfoRow(
                             'Duration',
                             _formatDuration(duration),
                             Icons.timer_outlined,
                           ),
                           const SizedBox(height: 8),
-                          
+
                           _buildInfoRow(
                             'Status',
                             widget.isOngoing ? 'In Progress' : 'Completed',
-                            widget.isOngoing ? Icons.play_circle : Icons.check_circle,
+                            widget.isOngoing
+                                ? Icons.play_circle
+                                : Icons.check_circle,
                           ),
                         ],
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Observations section
                   Card(
                     child: Padding(
@@ -198,17 +215,19 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                         children: [
                           Text(
                             'Observations',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.primaryGreen,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  color: AppColors.primaryGreen,
+                                  fontWeight: FontWeight.bold,
+                                ),
                           ),
                           const SizedBox(height: 12),
                           TextField(
                             controller: _observationsController,
                             maxLines: 4,
                             decoration: const InputDecoration(
-                              hintText: 'Add your observations about this activity...',
+                              hintText:
+                                  'Add your observations about this activity...',
                               border: OutlineInputBorder(),
                               alignLabelWithHint: true,
                             ),
@@ -218,9 +237,9 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Photos section using our new widget
                   PhotoGalleryWidget(
                     photoUrls: _photoUrls,
@@ -233,9 +252,9 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                       });
                     },
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Action buttons
                   if (!widget.isOngoing) ...[
                     SizedBox(
@@ -252,7 +271,10 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                         ),
                         child: const Text(
                           'Save Changes',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -271,7 +293,10 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                         ),
                         child: const Text(
                           'Stop Activity',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
@@ -285,11 +310,7 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
   Widget _buildInfoRow(String label, String value, IconData icon) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Colors.grey.shade600,
-        ),
+        Icon(icon, size: 20, color: Colors.grey.shade600),
         const SizedBox(width: 12),
         Text(
           '$label:',
@@ -303,10 +324,7 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -316,7 +334,7 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
   String _formatDuration(Duration duration) {
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
-    
+
     if (hours > 0) {
       return '${hours}h ${minutes}m';
     } else {

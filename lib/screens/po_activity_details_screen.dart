@@ -13,12 +13,14 @@ class PoActivityDetailsScreen extends StatelessWidget {
     required this.activity,
     required this.jwtToken,
   });
-  
+
   void _addObservation(BuildContext context) {
     // TODO: Implement the UI and logic to add an observation.
     // This could be a dialog with a text field that calls a new API endpoint.
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add observation functionality to be implemented.')),
+      const SnackBar(
+        content: Text('Add observation functionality to be implemented.'),
+      ),
     );
   }
 
@@ -54,9 +56,15 @@ class PoActivityDetailsScreen extends StatelessWidget {
                     const Divider(),
                     _buildDetailRow('Operator:', activity.operatorId),
                     const Divider(),
-                    _buildDetailRow('Start Time:', formatDateTime(activity.startTime)),
+                    _buildDetailRow(
+                      'Start Time:',
+                      formatDateTime(activity.startTime),
+                    ),
                     const Divider(),
-                    _buildDetailRow('End Time:', formatDateTime(activity.endTime)),
+                    _buildDetailRow(
+                      'End Time:',
+                      formatDateTime(activity.endTime),
+                    ),
                     const Divider(),
                     if (activity.observations != null &&
                         activity.observations!.isNotEmpty) ...[
@@ -67,9 +75,9 @@ class PoActivityDetailsScreen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Photos Section
             PhotoGalleryWidget(
               photoUrls: activity.photoUrls,
@@ -103,12 +111,7 @@ class PoActivityDetailsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 16),
-            ),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 16))),
         ],
       ),
     );

@@ -39,7 +39,7 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
   /// Clean and normalize photo URLs
   List<String> _cleanPhotoUrls(List<String> photoUrls) {
     List<String> cleanUrls = [];
-    
+
     for (String url in photoUrls) {
       if (url.trim().startsWith('{') && url.trim().endsWith('}')) {
         try {
@@ -57,7 +57,7 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
         cleanUrls.add(url);
       }
     }
-    
+
     return cleanUrls;
   }
 
@@ -71,9 +71,9 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error taking photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error taking photo: $e')));
       }
     } finally {
       if (mounted) setState(() => _isUploading = false);
@@ -84,22 +84,25 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
     try {
       setState(() => _isUploading = true);
 
-      final List<File> photos = await PhotoService.pickPhotosFromGallery(maxImages: 5);
-      
+      final List<File> photos = await PhotoService.pickPhotosFromGallery(
+        maxImages: 5,
+      );
+
       for (final photo in photos) {
         await _uploadAndAddPhoto(photo);
       }
     } catch (e) {
       if (mounted) {
         String errorMessage = e.toString();
-        
+
         // Show specific dialog for permission errors
-        if (errorMessage.contains('permission') || errorMessage.contains('Permission')) {
+        if (errorMessage.contains('permission') ||
+            errorMessage.contains('Permission')) {
           _showPermissionDialog();
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error picking photos: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error picking photos: $e')));
         }
       }
     } finally {
@@ -165,9 +168,9 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error uploading photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error uploading photo: $e')));
       }
     }
   }
@@ -185,7 +188,7 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
           _currentPhotoUrls.remove(photoUrl);
         });
         widget.onPhotosUpdated?.call(_currentPhotoUrls);
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Photo deleted successfully')),
@@ -196,9 +199,9 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting photo: $e')));
       }
     }
   }
@@ -251,9 +254,7 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -286,10 +287,7 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
                 ],
                 Text(
                   '${_currentPhotoUrls.length} photo(s)',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                 ),
               ],
             ),
@@ -313,7 +311,9 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.canEdit ? 'Tap + to add photos' : 'No photos available',
+                        widget.canEdit
+                            ? 'Tap + to add photos'
+                            : 'No photos available',
                         style: TextStyle(color: Colors.grey.shade600),
                       ),
                     ],
@@ -346,7 +346,9 @@ class _PhotoGalleryWidgetState extends State<PhotoGalleryWidget> {
                             placeholder: (context, url) => Container(
                               color: Colors.grey.shade200,
                               child: const Center(
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               ),
                             ),
                             errorWidget: (context, url, error) => Container(
@@ -440,7 +442,10 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
                   widget.onDeletePhoto!(widget.photoUrls[_currentIndex]);
                   Navigator.pop(context);
                 },
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: Colors.red),
+                ),
               ),
             ],
           );
@@ -479,9 +484,8 @@ class _PhotoViewScreenState extends State<PhotoViewScreen> {
           );
         },
         itemCount: widget.photoUrls.length,
-        loadingBuilder: (context, event) => const Center(
-          child: CircularProgressIndicator(color: Colors.white),
-        ),
+        loadingBuilder: (context, event) =>
+            const Center(child: CircularProgressIndicator(color: Colors.white)),
         backgroundDecoration: const BoxDecoration(color: Colors.black),
         pageController: _pageController,
         onPageChanged: (index) {

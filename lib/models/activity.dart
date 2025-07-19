@@ -38,10 +38,10 @@ class Activity {
   /// Parse and clean photo URLs that might be mixed formats
   static List<String> _parsePhotoUrls(dynamic photoUrlsData) {
     if (photoUrlsData == null) return [];
-    
+
     List<String> cleanUrls = [];
     List<dynamic> rawUrls = List.from(photoUrlsData);
-    
+
     for (var urlData in rawUrls) {
       if (urlData is String) {
         // Check if it's a JSON string
@@ -62,7 +62,7 @@ class Activity {
         }
       }
     }
-    
+
     return cleanUrls;
   }
 

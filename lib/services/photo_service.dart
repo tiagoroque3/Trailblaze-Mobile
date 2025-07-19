@@ -16,10 +16,10 @@ class PhotoService {
     try {
       final uri = Uri.parse('$baseUrl/photos/upload');
       final request = http.MultipartRequest('POST', uri);
-      
+
       // Add headers
       request.headers['Authorization'] = 'Bearer $jwtToken';
-      
+
       // Add file
       final multipartFile = await http.MultipartFile.fromPath(
         'file',
@@ -32,7 +32,7 @@ class PhotoService {
 
       if (response.statusCode == 200) {
         String responseBody = response.body.trim();
-        
+
         // Check if response is JSON format or plain URL
         if (responseBody.startsWith('{') && responseBody.endsWith('}')) {
           try {
@@ -48,7 +48,9 @@ class PhotoService {
           return responseBody;
         }
       } else {
-        throw Exception('Failed to upload photo: ${response.statusCode} - ${response.body}');
+        throw Exception(
+          'Failed to upload photo: ${response.statusCode} - ${response.body}',
+        );
       }
     } catch (e) {
       throw Exception('Error uploading photo: $e');
@@ -97,10 +99,7 @@ class PhotoService {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken',
         },
-        body: jsonEncode({
-          'activityId': activityId,
-          'photoUrl': photoUrl,
-        }),
+        body: jsonEncode({'activityId': activityId, 'photoUrl': photoUrl}),
       );
 
       return response.statusCode == 200;
@@ -141,34 +140,37 @@ class PhotoService {
       if (Platform.isAndroid) {
         // Try the new photo permission first (Android 13+)
         var photosPermission = await Permission.photos.status;
-        
+
         if (photosPermission.isDenied) {
           photosPermission = await Permission.photos.request();
         }
-        
+
         if (photosPermission.isGranted) {
           return true;
         }
-        
+
         // Fallback to storage permission for older Android versions
         var storagePermission = await Permission.storage.status;
-        
+
         if (storagePermission.isDenied) {
           storagePermission = await Permission.storage.request();
         }
-        
+
         if (storagePermission.isGranted) {
           return true;
         }
-        
+
         // If both fail, check if permanently denied
-        if (photosPermission.isPermanentlyDenied || storagePermission.isPermanentlyDenied) {
-          throw Exception('Storage permission permanently denied. Please enable it in app settings.');
+        if (photosPermission.isPermanentlyDenied ||
+            storagePermission.isPermanentlyDenied) {
+          throw Exception(
+            'Storage permission permanently denied. Please enable it in app settings.',
+          );
         }
-        
+
         return false;
       }
-      
+
       return true; // For non-Android platforms
     } catch (e) {
       print('Error requesting storage permission: $e');
@@ -180,7 +182,7 @@ class PhotoService {
   static Future<List<File>> pickPhotosFromGallery({int maxImages = 5}) async {
     try {
       final hasPermission = await _requestStoragePermission();
-      
+
       if (!hasPermission) {
         throw Exception('Storage permission denied');
       }
@@ -193,7 +195,7 @@ class PhotoService {
 
       // Limit the number of images
       final limitedImages = images.take(maxImages).toList();
-      
+
       return limitedImages.map((image) => File(image.path)).toList();
     } catch (e) {
       throw Exception('Error picking photos from gallery: $e');
