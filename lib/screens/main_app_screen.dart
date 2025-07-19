@@ -11,7 +11,6 @@ import 'package:trailblaze_app/screens/po_execution_dashboard.dart';
 import 'package:trailblaze_app/screens/execution_sheets_screen.dart';
 import 'package:trailblaze_app/screens/map_screen.dart';
 import 'package:trailblaze_app/screens/events_screen.dart';
-import 'package:trailblaze_app/screens/trails_screen.dart';
 import 'package:trailblaze_app/utils/role_manager.dart';
 
 class MainAppScreen extends StatefulWidget {
@@ -335,29 +334,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 }
               },
             ),
-            // Trails (RU or Admin)
-            if (_isRUorAdmin)
-              ListTile(
-                leading: const Icon(Icons.route),
-                title: const Text('Trails'),
-                onTap: () {
-                  Navigator.pop(context);
-                  if (widget.isLoggedIn) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => TrailsScreen(
-                          username: widget.username!,
-                          jwtToken: widget.jwtToken!,
-                          userRoles: _displayRoles!,
-                        ),
-                      ),
-                    );
-                  } else {
-                    _showGuestLoginDialog();
-                  }
-                },
-              ),
+     
             // Management Divider
             if (_displayRoles != null &&
                 (_displayRoles!.contains('PRBO') ||
