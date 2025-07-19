@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'dart:math';
 enum TrailVisibility { PRIVATE, PUBLIC }
 
 enum TrailStatus { ACTIVE, COMPLETED, PAUSED }
@@ -175,18 +175,22 @@ class Trail {
     }
   }
 
-  double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const double earthRadius = 6371; // Earth's radius in kilometers
-    
-    double dLat = (lat2 - lat1) * (3.14159 / 180);
-    double dLon = (lon2 - lon1) * (3.14159 / 180);
-    
-    double a = (dLat / 2).sin() * (dLat / 2).sin() +
-        lat1 * (3.14159 / 180).cos() * lat2 * (3.14159 / 180).cos() *
-        (dLon / 2).sin() * (dLon / 2).sin();
-    
-    double c = 2 * (a.sqrt()).atan2((1 - a).sqrt());
-    
-    return earthRadius * c;
-  }
+double _calculateDistance(
+    double lat1, double lon1, double lat2, double lon2) {
+  const double earthRadius = 6371.0; // em km
+
+  // converte graus para radianos
+  double toRad(double degree) => degree * pi / 180.0;
+
+  final dLat = toRad(lat2 - lat1);
+  final dLon = toRad(lon2 - lon1);
+
+  final a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(toRad(lat1)) * cos(toRad(lat2)) *
+      sin(dLon / 2) * sin(dLon / 2);
+
+  final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+  return earthRadius * c;
+}
 }
