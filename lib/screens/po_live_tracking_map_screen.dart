@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/services/execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 import 'package:trailblaze_app/utils/map_utils.dart';
+import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
+    as bg;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 
 class PoLiveTrackingMapScreen extends StatefulWidget {
   final ParcelOperationExecution parcelOperation;
@@ -30,19 +33,78 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   final Set<Marker> _markers = {};
   bool _isInsideParcel = false;
   String _statusMessage = 'Initializing...';
-  StreamSubscription<Position>? _positionStreamSubscription;
+  List<LatLng> _parcelGeometry = [];
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
+      FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _showBatteryWarning());
+    _initializeNotifications();
+    _initializeBackgroundGeolocation();
   }
 
   @override
   void dispose() {
-    _positionStreamSubscription?.cancel();
+    bg.BackgroundGeolocation.stop();
     _mapController?.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails('parcel_exit_channel', 'Parcel Exit',
+            channelDescription:
+                'Notifications for when you exit a parcel area',
+            importance: Importance.max,
+            priority: Priority.high,
+            showWhen: false);
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin
+        .show(0, title, body, platformChannelSpecifics, payload: 'item x');
+  }
+
+  void _initializeBackgroundGeolocation() {
+    bg.BackgroundGeolocation.onLocation((bg.Location location) {
+      if (!mounted) return;
+      final currentLatLng = LatLng(
+          location.coords.latitude,
+          location.coords.longitude);
+      _updateUserMarker(currentLatLng);
+      _checkIfInsideParcel(currentLatLng);
+    });
+
+    bg.BackgroundGeolocation.onGeofence((bg.GeofenceEvent event) async {
+      if (event.action == 'EXIT') {
+        await _showNotification('Parcel Exit Warning',
+            'You have left the designated parcel area.');
+      }
+      _updateStatusBasedOnGeofence(event);
+    });
+
+    bg.BackgroundGeolocation.ready(bg.Config(
+            desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
+            distanceFilter: 10.0,
+            stopOnTerminate: false,
+            startOnBoot: true,
+            debug: true,
+            logLevel: bg.Config.LOG_LEVEL_VERBOSE))
+        .then((bg.State state) {
+      if (!state.enabled) {
+        bg.BackgroundGeolocation.start();
+      }
+    });
   }
 
   Future<void> _showBatteryWarning() async {
@@ -80,16 +142,10 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       _statusMessage = 'Loading parcel boundary...';
     });
     await _fetchParcelGeometry();
-    await _startLocationTracking();
   }
 
   Future<void> _fetchParcelGeometry() async {
     try {
-      if (widget.parcelOperation.operationExecution == null) {
-        _showSnackBar('Operation details are missing.', isError: true);
-        return;
-      }
-
       final String parcelId = widget.parcelOperation.parcelId.toString();
 
       final geometry = await ExecutionService.fetchParcelGeometry(
@@ -99,6 +155,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       );
 
       if (mounted && geometry.isNotEmpty) {
+        _parcelGeometry = geometry;
         setState(() {
           final parcelPolygon = Polygon(
             polygonId: PolygonId(widget.parcelOperation.parcelId),
@@ -110,6 +167,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
           _polygons.add(parcelPolygon);
         });
         _centerOnParcel();
+        _addGeofence();
       } else if (mounted) {
         _showSnackBar('Could not load parcel boundary.', isError: true);
       }
@@ -118,46 +176,41 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     }
   }
 
-  Future<void> _startLocationTracking() async {
-    setState(() {
-      _statusMessage = 'Starting location services...';
-    });
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      _setStatus('Location services are disabled.', isError: true);
-      return;
-    }
+  Future<void> _addGeofence() async {
+    if (_parcelGeometry.isEmpty) return;
+    final center = _calculateCentroid(_parcelGeometry);
+    final radius = _calculateRadius(center, _parcelGeometry);
 
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        _setStatus('Location permission denied.', isError: true);
-        return;
+    await bg.BackgroundGeolocation.addGeofence(bg.Geofence(
+      identifier: "parcel_${widget.parcelOperation.parcelId}",
+      radius: radius,
+      latitude: center.latitude,
+      longitude: center.longitude,
+      notifyOnEntry: true,
+      notifyOnExit: true,
+    ));
+  }
+
+  LatLng _calculateCentroid(List<LatLng> points) {
+    double latitude = 0;
+    double longitude = 0;
+    for (var point in points) {
+      latitude += point.latitude;
+      longitude += point.longitude;
+    }
+    return LatLng(latitude / points.length, longitude / points.length);
+  }
+
+  double _calculateRadius(LatLng center, List<LatLng> points) {
+    double maxDistance = 0;
+    for (var point in points) {
+      final distance = Geolocator.distanceBetween(center.latitude,
+          center.longitude, point.latitude, point.longitude);
+      if (distance > maxDistance) {
+        maxDistance = distance;
       }
     }
-
-    if (permission == LocationPermission.deniedForever) {
-      _setStatus(
-          'Location permissions are permanently denied.',
-          isError: true);
-      return;
-    }
-
-    const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10,
-    );
-
-    _positionStreamSubscription =
-        Geolocator.getPositionStream(locationSettings: locationSettings)
-            .listen((Position position) {
-      if (!mounted) return;
-
-      final currentLatLng = LatLng(position.latitude, position.longitude);
-      _updateUserMarker(currentLatLng);
-      _checkIfInsideParcel(currentLatLng);
-    });
+    return maxDistance;
   }
 
   void _updateUserMarker(LatLng position) {
@@ -167,7 +220,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
         Marker(
           markerId: const MarkerId('userLocation'),
           position: position,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon:
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           infoWindow: const InfoWindow(title: 'Your Location'),
         ),
       );
@@ -181,11 +235,18 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       _setStatus(
         isInside
             ? 'You are inside the parcel.'
-            // CORRECTED: Updated warning text
             : 'WARNING: You are not inside the correct parcel',
         isError: !isInside,
       );
     }
+  }
+
+  void _updateStatusBasedOnGeofence(bg.GeofenceEvent event) {
+    _setStatus(
+        event.action == 'ENTER'
+            ? 'You have entered the parcel.'
+            : 'WARNING: You have exited the parcel',
+        isError: event.action == 'EXIT');
   }
 
   void _centerOnParcel() {
@@ -235,7 +296,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Live Tracking - Parcel ${widget.parcelOperation.parcelId}'),
+        title:
+            Text('Live Tracking - Parcel ${widget.parcelOperation.parcelId}'),
         backgroundColor: AppColors.primaryGreen,
       ),
       body: Stack(
@@ -274,7 +336,6 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
             ),
           ),
           Positioned(
-            // CORRECTED: Changed 'right' to 'left' to move buttons
             bottom: 30,
             left: 16,
             child: Column(
