@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class Activity {
   final String id;
   final String parcelOperationExecutionId;
@@ -29,7 +31,50 @@ class Activity {
           ? DateTime.fromMillisecondsSinceEpoch(json['endTime'])
           : null,
       observations: json['observations'],
-      photoUrls: List<String>.from(json['photoUrls'] ?? []),
+      photoUrls: _parsePhotoUrls(json['photoUrls']),
     );
+  }
+
+  /// Parse and clean photo URLs that might be mixed formats
+  static List<String> _parsePhotoUrls(dynamic photoUrlsData) {
+    if (photoUrlsData == null) return [];
+    
+    List<String> cleanUrls = [];
+    List<dynamic> rawUrls = List.from(photoUrlsData);
+    
+    for (var urlData in rawUrls) {
+      if (urlData is String) {
+        // Check if it's a JSON string
+        if (urlData.trim().startsWith('{') && urlData.trim().endsWith('}')) {
+          try {
+            // Parse JSON and extract photoUrl
+            var jsonMap = jsonDecode(urlData);
+            if (jsonMap['photoUrl'] != null) {
+              cleanUrls.add(jsonMap['photoUrl'].toString());
+            }
+          } catch (e) {
+            // If parsing fails, treat as regular URL
+            cleanUrls.add(urlData);
+          }
+        } else {
+          // Regular URL string
+          cleanUrls.add(urlData);
+        }
+      }
+    }
+    
+    return cleanUrls;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'parcelOperationExecutionId': parcelOperationExecutionId,
+      'operatorId': operatorId,
+      'startTime': startTime.millisecondsSinceEpoch,
+      'endTime': endTime?.millisecondsSinceEpoch,
+      'observations': observations,
+      'photoUrls': photoUrls,
+    };
   }
 }

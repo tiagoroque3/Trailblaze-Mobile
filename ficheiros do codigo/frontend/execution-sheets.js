@@ -18,6 +18,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let primaryRole = 'RU';
     let currentSheet = null;
     let notifications = [];
+    let currentSheetsData = []; // Store current sheets data globally
+    let currentUploadedPhotos = []; // Global array for uploaded photos
 
     // DOM elements
     const usernameDisplay = document.getElementById('username-display');
@@ -265,6 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderExecutionSheets(sheets) {
+        // Store sheets data globally for later access
+        currentSheetsData = sheets || [];
+        
         const grid = document.getElementById('sheets-grid');
 
         if (!sheets || sheets.length === 0) {
@@ -533,11 +538,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="activity-photos" style="margin-top: 8px;">
                         <div style="font-size: 10px; color: #6c757d; margin-bottom: 4px;">
                             📷 ${activity.photoUrls.length} photo${activity.photoUrls.length > 1 ? 's' : ''}
+                            ${canAddInfo ? `<span style="margin-left: 8px; font-size: 9px;">(click × to delete)</span>` : ''}
                         </div>
                         <div class="photo-thumbnails">
-                            ${activity.photoUrls.slice(0, 3).map(url => `
-                                <img src="${url}" alt="Activity photo" class="activity-photo-thumb" 
-                                     onclick="viewPhotoModal('${url}')" title="Click to view full size">
+                            ${activity.photoUrls.slice(0, 3).map((url, index) => `
+                                <div class="activity-photo-container">
+                                    <img src="${url}" alt="Activity photo" class="activity-photo-thumb" 
+                                         onclick="viewPhotoModal('${url}')" title="Click to view full size">
+                                    ${canAddInfo ? `
+                                        <button class="delete-photo-btn" onclick="deleteActivityPhoto('${activity.id}', '${url}', event)" title="Delete photo">×</button>
+                                    ` : ''}
+                                </div>
                             `).join('')}
                             ${activity.photoUrls.length > 3 ? `
                                 <div class="photo-more" onclick="viewAllPhotos('${activity.id}', ${JSON.stringify(activity.photoUrls).replace(/"/g, '&quot;')})">
@@ -980,6 +991,38 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Find the activity to get existing photos
+        let existingPhotos = [];
+        const activities = getAllActivitiesFromCurrentData();
+        const activity = activities.find(act => act.id === activityId);
+        if (activity && activity.photoUrls) {
+            existingPhotos = activity.photoUrls.map(url => ({
+                name: url.split('/').pop() || 'Photo',
+                url: url,
+                success: true
+            }));
+        }
+
+    function getAllActivitiesFromCurrentData() {
+        const activities = [];
+        currentSheetsData.forEach(sheet => {
+            if (sheet.operations) {
+                sheet.operations.forEach(operation => {
+                    if (operation.parcels) {
+                        operation.parcels.forEach(parcel => {
+                            if (parcel.activities) {
+                                parcel.activities.forEach(activity => {
+                                    activities.push(activity);
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+        });
+        return activities;
+    }
+
         openModal('Add Activity Information', `
             <form id="activity-info-form">
                 <input type="hidden" name="activityId" value="${activityId}">
@@ -988,10 +1031,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     <textarea id="activity-observations" name="observations" rows="3"></textarea>
                 </div>
                 <div class="form-group">
-                    <label for="activity-photos">Photos</label>
+                    <label for="activity-photos">Photos <span style="font-size: 11px; color: #4f695B; font-weight: 500;">📷 Multiple photos supported</span></label>
                     <div class="file-upload-area" onclick="document.getElementById('photo-input').click()">
-                        <div class="upload-text">Click to upload photos</div>
-                        <div class="upload-hint">JPG, PNG files up to 10MB each</div>
+                        <div class="upload-text">📷 Click to upload multiple photos</div>
+                        <div class="upload-hint">JPG, PNG files up to 10MB each • Hold Ctrl/Cmd to select multiple files • Add more photos anytime</div>
                     </div>
                     <input type="file" id="photo-input" multiple accept="image/jpeg,image/png,image/jpg" style="display: none;">
                     <div id="photo-list" class="photo-preview-container"></div>
@@ -1002,15 +1045,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="progress-text">Uploading photos...</div>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="activity-gps">GPS Track</label>
-                    <div class="file-upload-area" onclick="document.getElementById('gps-input').click()">
-                        <div class="upload-text">Click to upload GPS track</div>
-                        <div class="upload-hint">GPX files</div>
-                    </div>
-                    <input type="file" id="gps-input" accept=".gpx" style="display: none;">
-                    <div id="gps-file"></div>
-                </div>
                 <div class="form-actions">
                     <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
                     <button type="submit" class="action-btn" id="save-activity-btn">Save</button>
@@ -1019,8 +1053,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `);
 
         // Handle file uploads
-        setupPhotoUpload();
-        setupGpsUpload();
+        setupPhotoUpload(existingPhotos);
 
         document.getElementById('activity-info-form').addEventListener('submit', saveActivityInfo);
     };
@@ -1034,19 +1067,13 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.textContent = 'Saving...';
 
         try {
-            // Get uploaded photo URLs from the photo list
-            const uploadedPhotos = Array.from(document.querySelectorAll('#photo-list .photo-item'))
-                .map(item => item.dataset.photoUrl)
-                .filter(url => url);
-
-            // Get GPS track from uploaded file (if any)
-            const gpsTrackData = document.getElementById('gps-file').dataset.gpsContent || '';
+            // Get uploaded photo URLs from the global array instead of DOM
+            const uploadedPhotos = currentUploadedPhotos.map(photo => photo.url).filter(url => url);
 
             const data = {
                 activityId: formData.get('activityId'),
                 observations: formData.get('observations') || '',
-                photos: uploadedPhotos,
-                gpsTracks: gpsTrackData ? [gpsTrackData] : []
+                photos: uploadedPhotos
             };
 
             console.log('Sending activity info:', data);
@@ -1101,81 +1128,205 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Setup photo upload functionality (simplified base64 approach)
-    function setupPhotoUpload() {
+    // Setup photo upload functionality with backend endpoint
+    function setupPhotoUpload(existingPhotos = []) {
         const photoInput = document.getElementById('photo-input');
         const photoList = document.getElementById('photo-list');
         const progressContainer = document.getElementById('photo-upload-progress');
         const progressBar = progressContainer.querySelector('.progress-fill');
         const progressText = progressContainer.querySelector('.progress-text');
 
-        let uploadedPhotos = [];
+        // Initialize global photos array with existing photos
+        currentUploadedPhotos = [...existingPhotos];
+        
+        // Update display with existing photos
+        updatePhotoListDisplay();
+        
+        // Update upload text based on existing photos
+        const uploadText = document.querySelector('.upload-text');
+        if (currentUploadedPhotos.length === 0) {
+            uploadText.innerHTML = '📷 Click to upload multiple photos';
+        } else {
+            uploadText.innerHTML = `📷 Click to add more photos (${currentUploadedPhotos.length} already added)`;
+        }
 
         photoInput.addEventListener('change', async (e) => {
             const files = Array.from(e.target.files);
             if (files.length === 0) return;
 
+            // Update upload area text to show selection count
+            const uploadText = document.querySelector('.upload-text');
+            const currentCount = currentUploadedPhotos.length;
+            const newCount = files.length;
+            const totalCount = currentCount + newCount;
+            
+            if (currentCount === 0) {
+                // First time adding photos
+                if (newCount === 1) {
+                    uploadText.innerHTML = '📷 1 photo selected - Click to add more';
+                } else {
+                    uploadText.innerHTML = `📷 ${newCount} photos selected - Click to add more`;
+                }
+            } else {
+                // Adding to existing photos
+                uploadText.innerHTML = `📷 Adding ${newCount} more photo${newCount > 1 ? 's' : ''} (${totalCount} total)`;
+            }
+
             // Validate files
             const invalidFiles = files.filter(file => {
                 const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
-                const maxSize = 5 * 1024 * 1024; // 5MB limit for base64
+                const maxSize = 10 * 1024 * 1024; // 10MB limit
                 return !validTypes.includes(file.type) || file.size > maxSize;
             });
 
             if (invalidFiles.length > 0) {
-                showMessage('Some files are invalid. Please upload JPG/PNG files under 5MB.', 'error');
+                showMessage(`${invalidFiles.length} file(s) are invalid. Please upload JPG/PNG files under 10MB each.`, 'error');
                 return;
             }
 
             progressContainer.style.display = 'block';
             let completed = 0;
+            let successfulUploads = 0;
 
             try {
-                for (const file of files) {
-                    progressText.textContent = `Processing ${file.name}...`;
-                    
-                    // Convert to base64
-                    const base64Url = await convertToBase64(file);
-                    
-                    uploadedPhotos.push({
-                        name: file.name,
-                        url: base64Url
-                    });
+                progressText.textContent = `Uploading ${files.length} photo${files.length > 1 ? 's' : ''}...`;
 
-                    completed++;
-                    const progress = (completed / files.length) * 100;
-                    progressBar.style.width = `${progress}%`;
+                // Process files sequentially to avoid overwhelming the server
+                for (const file of files) {
+                    try {
+                        progressText.textContent = `Uploading ${file.name}...`;
+                        
+                        // Use FormData to upload via backend endpoint
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        const uploadResponse = await fetch(`${BASE_URL}/photos/upload`, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                            },
+                            body: formData
+                        });
+
+                        if (!uploadResponse.ok) {
+                            const errorText = await uploadResponse.text();
+                            let errorMessage;
+                            try {
+                                const errorData = JSON.parse(errorText);
+                                errorMessage = errorData.error || errorText;
+                            } catch (e) {
+                                errorMessage = errorText;
+                            }
+                            throw new Error(`Upload failed: ${errorMessage}`);
+                        }
+
+                        const uploadData = await uploadResponse.json();
+                        
+                        currentUploadedPhotos.push({
+                            name: file.name,
+                            url: uploadData.photoUrl,
+                            success: true
+                        });
+
+                        successfulUploads++;
+
+                    } catch (error) {
+                        console.error(`Error uploading ${file.name}:`, error);
+                        showMessage(`Failed to upload ${file.name}: ${error.message}`, 'error');
+                    } finally {
+                        completed++;
+                        const progress = (completed / files.length) * 100;
+                        progressBar.style.width = `${progress}%`;
+                    }
                 }
 
                 // Update photo list display
-                photoList.innerHTML = uploadedPhotos.map(photo => `
-                    <div class="photo-item" data-photo-url="${photo.url}">
-                        <img src="${photo.url}" alt="${photo.name}" class="photo-thumbnail">
-                        <div class="photo-name">${photo.name}</div>
-                        <button type="button" class="remove-photo" onclick="removePhoto(this, '${photo.url}')">×</button>
-                    </div>
-                `).join('');
+                updatePhotoListDisplay();
 
-                progressText.textContent = 'Processing completed!';
+                // Show completion message
+                if (successfulUploads === files.length) {
+                    progressText.textContent = `Successfully uploaded ${successfulUploads} photo${successfulUploads !== 1 ? 's' : ''}!`;
+                } else if (successfulUploads > 0) {
+                    progressText.textContent = `Uploaded ${successfulUploads}/${files.length} photos`;
+                } else {
+                    progressText.textContent = `No photos were uploaded successfully`;
+                }
+
                 setTimeout(() => {
                     progressContainer.style.display = 'none';
-                }, 2000);
+                }, 3000);
 
             } catch (error) {
-                console.error('Processing error:', error);
-                showMessage(`Processing failed: ${error.message}`, 'error');
+                console.error('Upload error:', error);
+                showMessage(`Upload failed: ${error.message}`, 'error');
                 progressContainer.style.display = 'none';
             }
 
             // Clear the input for future uploads
             photoInput.value = '';
+            
+            // Reset upload text to reflect current state
+            if (currentUploadedPhotos.length === 0) {
+                uploadText.innerHTML = '📷 Click to upload multiple photos';
+            } else {
+                uploadText.innerHTML = `📷 Click to add more photos (${currentUploadedPhotos.length} added)`;
+            }
         });
 
+        function resetUploadInterface() {
+            const uploadText = document.querySelector('.upload-text');
+            if (currentUploadedPhotos.length === 0) {
+                uploadText.innerHTML = '📷 Click to upload multiple photos';
+            } else {
+                uploadText.innerHTML = `📷 Click to add more photos (${currentUploadedPhotos.length} already added)`;
+            }
+            photoInput.value = '';
+            updatePhotoListDisplay();
+        }
+
+        function updatePhotoListDisplay() {
+            // Add counter header if multiple photos
+            let counterHtml = '';
+            if (currentUploadedPhotos.length > 1) {
+                counterHtml = `
+                    <div class="photos-counter">
+                        📷 ${currentUploadedPhotos.length} photos selected
+                        <button type="button" class="clear-all-photos" onclick="clearAllPhotos()" title="Remove all photos">Clear All</button>
+                    </div>
+                `;
+            }
+
+            photoList.innerHTML = counterHtml + currentUploadedPhotos.map((photo, index) => `
+                <div class="photo-item" data-photo-url="${photo.url}" data-photo-index="${index}">
+                    <img src="${photo.url}" alt="${photo.name}" class="photo-thumbnail" 
+                         onclick="viewPhotoModal('${photo.url}')" title="Click to view full size">
+                    <div class="photo-name" title="${photo.name}">${photo.name}</div>
+                    <button type="button" class="remove-photo" onclick="removePhoto(this, ${index})" title="Remove photo">×</button>
+                </div>
+            `).join('');
+        }
+
+        // Function to clear all photos
+        window.clearAllPhotos = function() {
+            currentUploadedPhotos = [];
+            updatePhotoListDisplay();
+            resetUploadInterface();
+        };
+
         // Remove photo function
-        window.removePhoto = function(button, photoUrl) {
+        window.removePhoto = function(button, photoIndex) {
             const photoItem = button.closest('.photo-item');
             photoItem.remove();
-            uploadedPhotos = uploadedPhotos.filter(photo => photo.url !== photoUrl);
+            currentUploadedPhotos.splice(photoIndex, 1);
+            updatePhotoListDisplay();
+            
+            // Update upload text to reflect new count
+            const uploadText = document.querySelector('.upload-text');
+            if (currentUploadedPhotos.length === 0) {
+                uploadText.innerHTML = '📷 Click to upload multiple photos';
+            } else {
+                uploadText.innerHTML = `📷 Click to add more photos (${currentUploadedPhotos.length} added)`;
+            }
         };
     }
 
@@ -1186,36 +1337,6 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.readAsDataURL(file);
             reader.onload = () => resolve(reader.result);
             reader.onerror = error => reject(error);
-        });
-    }
-
-    // Setup GPS upload functionality
-    function setupGpsUpload() {
-        const gpsInput = document.getElementById('gps-input');
-        const gpsFile = document.getElementById('gps-file');
-
-        gpsInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) {
-                gpsFile.innerHTML = '';
-                gpsFile.dataset.gpsContent = '';
-                return;
-            }
-
-            if (!file.name.toLowerCase().endsWith('.gpx')) {
-                showMessage('Please upload a valid GPX file.', 'error');
-                return;
-            }
-
-            try {
-                // For GPS files, we'll read and store the content directly
-                const text = await file.text();
-                gpsFile.innerHTML = `<div class="gps-file-item">📍 ${file.name}</div>`;
-                gpsFile.dataset.gpsContent = text;
-            } catch (error) {
-                console.error('GPS file read error:', error);
-                showMessage('Failed to read GPS file.', 'error');
-            }
         });
     }
 
@@ -1906,10 +2027,65 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
         `);
     };
 
+    // Delete individual photo from activity
+    window.deleteActivityPhoto = async function(activityId, photoUrl, event) {
+        // Stop event propagation to prevent triggering photo view
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        if (!canAddActivityInfo()) {
+            showMessage('Insufficient permissions to delete photos', 'error');
+            return;
+        }
+
+        if (!confirm('Are you sure you want to delete this photo? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            showLoading();
+
+            // Send request to backend to remove this specific photo
+            const response = await fetch(`${BASE_URL}/operations/activity/deletephoto`, {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    activityId: activityId,
+                    photoUrl: photoUrl
+                })
+            });
+
+            if (response.ok) {
+                showMessage('Photo deleted successfully!', 'success');
+                // Refresh the current view to show updated photos
+                if (currentSheet) {
+                    viewSheetDetails(currentSheet.executionSheet.id);
+                }
+            } else {
+                const errorText = await response.text();
+                showMessage(`Error deleting photo: ${errorText}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting photo:', error);
+            showMessage('Connection error while deleting photo', 'error');
+        } finally {
+            hideLoading();
+        }
+    };
+
     window.viewAllPhotos = function(activityId, photoUrls) {
+        const canDelete = canAddActivityInfo(); // Check if user can delete photos
+        
         const photosHtml = photoUrls.map((url, index) => `
             <div class="photo-gallery-item">
-                <img src="${url}" alt="Activity photo ${index + 1}" class="gallery-photo" onclick="viewPhotoModal('${url}')">
+                <div class="activity-photo-container">
+                    <img src="${url}" alt="Activity photo ${index + 1}" class="gallery-photo" onclick="viewPhotoModal('${url}')">
+                    ${canDelete ? `
+                        <button class="delete-photo-btn gallery-delete-btn" onclick="deleteActivityPhoto('${activityId}', '${url}', event)" title="Delete photo">×</button>
+                    ` : ''}
+                </div>
             </div>
         `).join('');
 
@@ -1917,6 +2093,7 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
             <div class="photo-gallery">
                 ${photosHtml}
             </div>
+            ${canDelete ? `<p style="text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d;">Click × on any photo to delete it</p>` : ''}
         `);
     };
 });

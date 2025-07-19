@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:trailblaze_app/models/activity.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
+import 'package:trailblaze_app/widgets/photo_gallery_widget.dart';
 
 class PrboActivityDetailsScreen extends StatefulWidget {
   final Activity activity;
@@ -93,70 +94,12 @@ class _PrboActivityDetailsScreenState extends State<PrboActivityDetailsScreen> {
             const SizedBox(height: 16),
 
             // Photos Section
-            if (widget.activity.photoUrls.isNotEmpty) ...[
-              Card(
-                elevation: 4,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Photos',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '${widget.activity.photoUrls.length} photo(s)',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      // In a real implementation, you would display actual photos here
-                      Container(
-                        height: 100,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.photo_library,
-                                size: 32,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(height: 8),
-                              Text(
-                                'Photos will be displayed here',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
+            PhotoGalleryWidget(
+              photoUrls: widget.activity.photoUrls,
+              jwtToken: widget.jwtToken,
+              activityId: widget.activity.id,
+              canEdit: false, // PRBO cannot edit photos, only view
+            ),
           ],
         ),
       ),

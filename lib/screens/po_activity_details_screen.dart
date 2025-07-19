@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:trailblaze_app/models/activity.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
+import 'package:trailblaze_app/widgets/photo_gallery_widget.dart';
 
 class PoActivityDetailsScreen extends StatelessWidget {
   final Activity activity;
@@ -33,38 +34,50 @@ class PoActivityDetailsScreen extends StatelessWidget {
         title: const Text('Activity Details'),
         backgroundColor: AppColors.primaryGreen,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        child: Card(
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDetailRow('Activity ID:', activity.id),
-                const Divider(),
-                _buildDetailRow('Operator:', activity.operatorId),
-                const Divider(),
-                _buildDetailRow('Start Time:', formatDateTime(activity.startTime)),
-                const Divider(),
-                _buildDetailRow('End Time:', formatDateTime(activity.endTime)),
-                const Divider(),
-                if (activity.observations != null &&
-                    activity.observations!.isNotEmpty) ...[
-                  _buildDetailRow('Observations:', activity.observations!),
-                  const Divider(),
-                ],
-                if (activity.photoUrls.isNotEmpty)
-                  _buildDetailRow(
-                      'Photos:', activity.photoUrls.length.toString()),
-              ],
+        child: Column(
+          children: [
+            // Basic Activity Information
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDetailRow('Activity ID:', activity.id),
+                    const Divider(),
+                    _buildDetailRow('Operator:', activity.operatorId),
+                    const Divider(),
+                    _buildDetailRow('Start Time:', formatDateTime(activity.startTime)),
+                    const Divider(),
+                    _buildDetailRow('End Time:', formatDateTime(activity.endTime)),
+                    const Divider(),
+                    if (activity.observations != null &&
+                        activity.observations!.isNotEmpty) ...[
+                      _buildDetailRow('Observations:', activity.observations!),
+                      const Divider(),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
+            
+            const SizedBox(height: 16),
+            
+            // Photos Section
+            PhotoGalleryWidget(
+              photoUrls: activity.photoUrls,
+              jwtToken: jwtToken,
+              activityId: activity.id,
+              canEdit: true, // PO can edit photos
+            ),
+          ],
         ),
       ),
       floatingActionButton: FloatingActionButton(

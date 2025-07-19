@@ -41,6 +41,7 @@ import pt.unl.fct.di.apdc.trailblaze.util.AddInfoRequest;
 import pt.unl.fct.di.apdc.trailblaze.util.JwtUtil;
 import pt.unl.fct.di.apdc.trailblaze.util.ParcelExecutionStatus;
 import pt.unl.fct.di.apdc.trailblaze.util.Role;
+import pt.unl.fct.di.apdc.trailblaze.util.NotifyOutUtil;
 
 
 
@@ -536,6 +537,14 @@ public class OperationResource {
                 datastore.put(updatedOp);
             }
 
+            // 10. Verificar notificações se a parcela foi concluída
+            if (allFinished) {
+                // Notificação 1: Operação concluída nesta parcela
+                NotifyOutUtil.checkAndNotifyOperationParcelEnd(operationExecutionId, parcelOpExecId);
+                
+                // Notificação 2: Verificar se a operação está totalmente concluída
+                NotifyOutUtil.checkAndNotifyOperationEnd(operationExecutionId);
+            }
             return Response.ok(Map.of(
                     "message", "Atividade finalizada com sucesso",
                     "activityId", request.activityId
@@ -800,12 +809,32 @@ public class OperationResource {
             // Update photos if provided
             if (req.photos != null && !req.photos.isEmpty()) {
                 System.out.println("Processing " + req.photos.size() + " photos");
-                List<Value<String>> photoValues = req.photos.stream()
-                        .filter(photo -> photo != null && !photo.trim().isEmpty())
+                
+                // Get existing photos first
+                List<String> allPhotos = new ArrayList<>();
+                if (activityEntity.contains("photoUrls")) {
+                    for (Value<?> v : activityEntity.getList("photoUrls")) {
+                        String existingPhoto = ((StringValue) v).get();
+                        if (existingPhoto != null && !existingPhoto.trim().isEmpty()) {
+                            allPhotos.add(existingPhoto);
+                        }
+                    }
+                }
+                System.out.println("Found " + allPhotos.size() + " existing photos");
+                
+                // Add new photos to existing ones
+                for (String newPhoto : req.photos) {
+                    if (newPhoto != null && !newPhoto.trim().isEmpty() && !allPhotos.contains(newPhoto)) {
+                        allPhotos.add(newPhoto);
+                    }
+                }
+                
+                System.out.println("Total photos after merge: " + allPhotos.size());
+                
+                // Convert to ListValue
+                List<Value<String>> photoValues = allPhotos.stream()
                         .map(photo -> StringValue.newBuilder(photo).setExcludeFromIndexes(true).build())
                         .collect(Collectors.toList());
-                
-                System.out.println("Filtered to " + photoValues.size() + " valid photos");
                 
                 // Create ListValue with non-indexed string values
                 updatedActivityBuilder.set("photoUrls", ListValue.of(photoValues));
@@ -836,6 +865,116 @@ public class OperationResource {
         }
     }
 
+    @POST
+    @Path("/activity/deletephoto")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteActivityPhoto(
+            @HeaderParam("Authorization") String token,
+            Map<String, String> request
+    ) {
+        if (!hasRole(token, Role.PO) && !hasRole(token, Role.PRBO) && !hasRole(token, Role.SYSADMIN)) {
+            return Response.status(Response.Status.FORBIDDEN)
+                    .entity("Permissões insuficientes.").build();
+        }
+
+        String activityId = request.get("activityId");
+        String photoUrl = request.get("photoUrl");
+
+        if (activityId == null || activityId.trim().isEmpty() || 
+            photoUrl == null || photoUrl.trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("Activity ID e Photo URL são obrigatórios.").build();
+        }
+
+        try {
+            System.out.println("=== DeleteActivityPhoto Debug ===");
+            System.out.println("Activity ID: " + activityId);
+            System.out.println("Photo URL to delete: " + photoUrl);
+            
+            // Find the activity
+            Key activityKey = actKeyFactory.newKey(activityId);
+            Entity activityEntity = datastore.get(activityKey);
+
+            if (activityEntity == null) {
+                System.out.println("Activity not found: " + activityId);
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Atividade não encontrada.").build();
+            }
+
+            // Check permissions (same as addActivityInfo)
+            String currentUser = getUsername(token);
+            if (hasRole(token, Role.PO) && !hasRole(token, Role.PRBO) && !hasRole(token, Role.SYSADMIN)) {
+                String parcelOpExecId = activityEntity.getString("parcelOperationExecutionId");
+                if (parcelOpExecId != null) {
+                    Key parcelOpKey = parcelExecutionKeyFactory.newKey(parcelOpExecId);
+                    Entity parcelExec = datastore.get(parcelOpKey);
+                    
+                    if (parcelExec != null && parcelExec.contains("assignedUsername")) {
+                        String assignedUsername = parcelExec.getString("assignedUsername");
+                        if (assignedUsername != null && !assignedUsername.isEmpty() && !currentUser.equals(assignedUsername)) {
+                            return Response.status(Response.Status.FORBIDDEN)
+                                    .entity("Não tem permissão para modificar fotos desta atividade.").build();
+                        }
+                    }
+                }
+            }
+
+            // Get existing photos
+            List<String> existingPhotos = new ArrayList<>();
+            if (activityEntity.contains("photoUrls")) {
+                for (Value<?> v : activityEntity.getList("photoUrls")) {
+                    String existingPhoto = ((StringValue) v).get();
+                    if (existingPhoto != null && !existingPhoto.trim().isEmpty()) {
+                        existingPhotos.add(existingPhoto);
+                    }
+                }
+            }
+
+            System.out.println("Found " + existingPhotos.size() + " existing photos");
+
+            // Remove the specified photo
+            boolean removed = existingPhotos.remove(photoUrl);
+            
+            if (!removed) {
+                return Response.status(Response.Status.NOT_FOUND)
+                        .entity("Foto não encontrada na atividade.").build();
+            }
+
+            System.out.println("Photo removed. Remaining photos: " + existingPhotos.size());
+
+            // Update the activity with the new photo list
+            Entity.Builder updatedActivityBuilder = Entity.newBuilder(activityEntity);
+            
+            List<Value<String>> photoValues = existingPhotos.stream()
+                    .map(photo -> StringValue.newBuilder(photo).setExcludeFromIndexes(true).build())
+                    .collect(Collectors.toList());
+            
+            updatedActivityBuilder.set("photoUrls", ListValue.of(photoValues));
+
+            // Save the updated activity
+            datastore.put(updatedActivityBuilder.build());
+
+            System.out.println("Successfully deleted photo!");
+
+            return Response.ok(Map.of(
+                    "message", "Foto removida com sucesso.",
+                    "activityId", activityId,
+                    "remainingPhotos", existingPhotos.size()
+            )).build();
+
+        } catch (DatastoreException e) {
+            System.err.println("Erro no Datastore ao remover foto: " + e.getMessage());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro interno ao remover foto: " + e.getMessage()).build();
+        } catch (Exception e) {
+            System.err.println("Erro geral ao remover foto: " + e.getMessage());
+            e.printStackTrace();
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Erro interno: " + e.getMessage()).build();
+        }
+    }
 
     @PATCH
     @Path("/edit-operation-execution")

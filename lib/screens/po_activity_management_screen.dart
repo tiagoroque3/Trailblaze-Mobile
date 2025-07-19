@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:trailblaze_app/models/activity.dart';
 import 'package:trailblaze_app/services/execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
+import 'package:trailblaze_app/widgets/photo_gallery_widget.dart';
 
 class PoActivityManagementScreen extends StatefulWidget {
   final Activity activity;
@@ -95,49 +96,6 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
         _isLoading = false;
       });
     }
-  }
-
-  void _addPhotoUrl() {
-    showDialog(
-      context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('Add Photo URL'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Photo URL',
-              hintText: 'https://example.com/photo.jpg',
-            ),
-            keyboardType: TextInputType.url,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  setState(() {
-                    _photoUrls.add(controller.text);
-                  });
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Add'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _removePhotoUrl(int index) {
-    setState(() {
-      _photoUrls.removeAt(index);
-    });
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
@@ -263,84 +221,17 @@ class _PoActivityManagementScreenState extends State<PoActivityManagementScreen>
                   
                   const SizedBox(height: 16),
                   
-                  // Photos section
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                'Photos',
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: AppColors.primaryGreen,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const Spacer(),
-                              TextButton.icon(
-                                onPressed: _isLoading ? null : _addPhotoUrl,
-                                icon: const Icon(Icons.add_photo_alternate),
-                                label: const Text('Add Photo'),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          
-                          if (_photoUrls.isEmpty)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(24.0),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.photo_outlined,
-                                    size: 48,
-                                    color: Colors.grey.shade400,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'No photos added yet',
-                                    style: TextStyle(
-                                      color: Colors.grey.shade600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            ListView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _photoUrls.length,
-                              itemBuilder: (context, index) {
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  child: ListTile(
-                                    leading: const Icon(Icons.photo),
-                                    title: Text(
-                                      _photoUrls[index],
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.red),
-                                      onPressed: () => _removePhotoUrl(index),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
+                  // Photos section using our new widget
+                  PhotoGalleryWidget(
+                    photoUrls: _photoUrls,
+                    jwtToken: widget.jwtToken,
+                    activityId: widget.activity.id,
+                    canEdit: true,
+                    onPhotosUpdated: (updatedPhotos) {
+                      setState(() {
+                        _photoUrls = updatedPhotos;
+                      });
+                    },
                   ),
                   
                   const SizedBox(height: 24),
