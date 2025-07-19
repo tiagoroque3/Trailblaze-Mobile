@@ -2,6 +2,22 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://developer.huawei.com/repo/") }
+        maven { url = uri("https://www.jitpack.io") }
+        // Repositório para os plugins da Transistor Software
+        maven {
+            url = uri("https://maven.transistorsoft.com/")
+            isAllowInsecureProtocol = false
+            // Tentar adicionar configurações adicionais
+            content {
+                includeGroup("com.transistorsoft")
+            }
+        }
+        // Adicionar repositório alternativo para alguns pacotes
+        maven {
+            url = uri("https://jcenter.bintray.com/")
+            isAllowInsecureProtocol = false
+        }
     }
 }
 

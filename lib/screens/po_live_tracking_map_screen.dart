@@ -5,8 +5,8 @@ import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/services/execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 import 'package:trailblaze_app/utils/map_utils.dart';
-import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
-    as bg;
+// import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
+//     as bg; // Temporariamente comentado
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -43,12 +43,12 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _showBatteryWarning());
     _initializeNotifications();
-    _initializeBackgroundGeolocation();
+    // _initializeBackgroundGeolocation(); // Temporariamente comentado
   }
 
   @override
   void dispose() {
-    bg.BackgroundGeolocation.stop();
+    // bg.BackgroundGeolocation.stop(); // Temporariamente comentado
     _mapController?.dispose();
     super.dispose();
   }
@@ -75,6 +75,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
         .show(0, title, body, platformChannelSpecifics, payload: 'item x');
   }
 
+  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
+  /*
   void _initializeBackgroundGeolocation() {
     bg.BackgroundGeolocation.onLocation((bg.Location location) {
       if (!mounted) return;
@@ -106,6 +108,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       }
     });
   }
+  */
 
   Future<void> _showBatteryWarning() async {
     await showDialog(
@@ -167,7 +170,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
           _polygons.add(parcelPolygon);
         });
         _centerOnParcel();
-        _addGeofence();
+        // _addGeofence(); // Temporariamente comentado
       } else if (mounted) {
         _showSnackBar('Could not load parcel boundary.', isError: true);
       }
@@ -176,6 +179,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     }
   }
 
+  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
+  /*
   Future<void> _addGeofence() async {
     if (_parcelGeometry.isEmpty) return;
     final center = _calculateCentroid(_parcelGeometry);
@@ -190,6 +195,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       notifyOnExit: true,
     ));
   }
+  */
 
   LatLng _calculateCentroid(List<LatLng> points) {
     double latitude = 0;
@@ -241,6 +247,8 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     }
   }
 
+  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
+  /*
   void _updateStatusBasedOnGeofence(bg.GeofenceEvent event) {
     _setStatus(
         event.action == 'ENTER'
@@ -248,6 +256,7 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
             : 'WARNING: You have exited the parcel',
         isError: event.action == 'EXIT');
   }
+  */
 
   void _centerOnParcel() {
     if (_polygons.isEmpty || _mapController == null) {
