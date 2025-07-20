@@ -394,9 +394,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 25),
-              
+
               // Quick Access section
               if (widget.isLoggedIn) ...[
                 Text(
@@ -408,7 +408,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   ),
                 ),
                 const SizedBox(height: 15),
-                
+
                 // Main features grid
                 GridView.count(
                   crossAxisCount: 2,
@@ -425,7 +425,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
                       subtitle: 'View account details',
                       color: Colors.blue,
                       onTap: () {
-                        if (widget.username != null && widget.jwtToken != null) {
+                        if (widget.username != null &&
+                            widget.jwtToken != null) {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -438,7 +439,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                         }
                       },
                     ),
-                    
+
                     // Map
                     _buildFeatureCard(
                       icon: Icons.map_outlined,
@@ -457,7 +458,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                         );
                       },
                     ),
-                    
+
                     // PO specific
                     if (_displayRoles?.contains('PO') == true)
                       _buildFeatureCard(
@@ -477,7 +478,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                           );
                         },
                       ),
-                    
+
                     // PRBO specific
                     if (_displayRoles?.contains('PRBO') == true)
                       _buildFeatureCard(
@@ -498,7 +499,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                           );
                         },
                       ),
-                    
+
                     // Events (RU)
                     if (_displayRoles?.contains('RU') == true)
                       _buildFeatureCard(
@@ -519,7 +520,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                           );
                         },
                       ),
-                    
+
                     // Trails (RU or Admin)
                     if (_isRUorAdmin)
                       _buildFeatureCard(
@@ -542,10 +543,10 @@ class _MainAppScreenState extends State<MainAppScreen> {
                       ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 25),
               ],
-              
+
               // Recent Activity section
               Card(
                 elevation: 3,
@@ -589,7 +590,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                          onPressed: () =>
+                              _scaffoldKey.currentState?.openDrawer(),
                           icon: const Icon(Icons.menu, size: 20),
                           label: const Text('View All Features'),
                           style: ElevatedButton.styleFrom(
@@ -606,7 +608,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   ),
                 ),
               ),
-              
+
               if (!widget.isLoggedIn) ...[
                 const SizedBox(height: 20),
                 Card(
@@ -650,7 +652,9 @@ class _MainAppScreenState extends State<MainAppScreen> {
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
+                                ),
                               );
                             },
                             icon: const Icon(Icons.login, size: 20),
@@ -700,9 +704,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
   }) {
     return Card(
       elevation: 3,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
@@ -717,11 +719,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   color: color.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  size: 32,
-                  color: color,
-                ),
+                child: Icon(icon, size: 32, color: color),
               ),
               const SizedBox(height: 12),
               Text(
@@ -735,10 +733,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
             ],

@@ -21,10 +21,7 @@ class WelcomeScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Image.asset(
-                  'assets/images/logo.png',
-                  height: 250,
-                ),
+                Image.asset('assets/images/logo.png', height: 250),
                 SizedBox(height: 30),
 
                 Text(
@@ -53,7 +50,9 @@ class WelcomeScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => LoginScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => LoginScreen(),
+                          ),
                         );
                       },
                       style: ElevatedButton.styleFrom(
@@ -81,7 +80,9 @@ class WelcomeScreen extends StatelessWidget {
                       onPressed: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => RegisterScreen()), // Navigate to new RegisterScreen
+                          MaterialPageRoute(
+                            builder: (context) => RegisterScreen(),
+                          ), // Navigate to new RegisterScreen
                         );
                       },
                       style: OutlinedButton.styleFrom(
