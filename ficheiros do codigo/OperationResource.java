@@ -39,9 +39,9 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import pt.unl.fct.di.apdc.trailblaze.util.AddInfoRequest;
 import pt.unl.fct.di.apdc.trailblaze.util.JwtUtil;
+import pt.unl.fct.di.apdc.trailblaze.util.NotifyOutUtil;
 import pt.unl.fct.di.apdc.trailblaze.util.ParcelExecutionStatus;
 import pt.unl.fct.di.apdc.trailblaze.util.Role;
-import pt.unl.fct.di.apdc.trailblaze.util.NotifyOutUtil;
 
 
 

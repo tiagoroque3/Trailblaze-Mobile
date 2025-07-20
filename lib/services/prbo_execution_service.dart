@@ -127,7 +127,6 @@ class PrboExecutionService {
     required String jwtToken,
     required String sheetId,
     String? title,
-    String? associatedWorkSheetId,
     String? associatedUser,
     String? description,
     String? state,
@@ -135,8 +134,7 @@ class PrboExecutionService {
     try {
       final Map<String, dynamic> updateData = {};
       if (title != null) updateData['title'] = title;
-      if (associatedWorkSheetId != null)
-        updateData['associatedWorkSheetId'] = associatedWorkSheetId;
+      // Note: associatedWorkSheetId is not editable after creation
       if (associatedUser != null) updateData['associatedUser'] = associatedUser;
       if (description != null) updateData['description'] = description;
       if (state != null) updateData['state'] = state;

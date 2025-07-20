@@ -40,19 +40,20 @@ class _PrboCreateExecutionSheetScreenState
   @override
   void initState() {
     super.initState();
-    _loadAvailableWorksheets();
 
     if (_isEditing) {
       _populateEditingData();
+    } else {
+      _loadAvailableWorksheets();
     }
   }
 
   void _populateEditingData() {
     final sheet = widget.editingSheet!;
     _titleController.text = sheet.title;
-    _selectedWorksheetId = sheet.associatedWorkSheetId;
+    _descriptionController.text = sheet.description ?? '';
+    // Note: Worksheet ID is not editable after creation, so we don't set _selectedWorksheetId
     _selectedState = sheet.state;
-    // Note: description field might not exist in the current model
   }
 
   Future<void> _loadAvailableWorksheets() async {
@@ -87,7 +88,8 @@ class _PrboCreateExecutionSheetScreenState
       return;
     }
 
-    if (_selectedWorksheetId == null) {
+    // Only validate worksheet selection for new sheets, not for editing
+    if (!_isEditing && _selectedWorksheetId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select a worksheet'),
@@ -103,12 +105,11 @@ class _PrboCreateExecutionSheetScreenState
 
     try {
       if (_isEditing) {
-        // Update existing execution sheet
+        // Update existing execution sheet (without changing worksheet)
         await PrboExecutionService.updateExecutionSheet(
           jwtToken: widget.jwtToken,
           sheetId: widget.editingSheet!.id,
           title: _titleController.text.trim(),
-          associatedWorkSheetId: _selectedWorksheetId,
           description: _descriptionController.text.trim(),
           state: _selectedState,
         );
@@ -254,63 +255,65 @@ class _PrboCreateExecutionSheetScreenState
 
               const SizedBox(height: 16),
 
-              // Worksheet Selection
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Worksheet Assignment',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primaryGreen,
+              // Worksheet Selection (only for creating new sheets)
+              if (!_isEditing) ...[
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Worksheet Assignment',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primaryGreen,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      _isLoadingWorksheets
-                          ? const Center(child: CircularProgressIndicator())
-                          : DropdownButtonFormField<String>(
-                              value: _selectedWorksheetId,
-                              decoration: const InputDecoration(
-                                labelText: 'Associated Worksheet*',
-                                hintText: 'Select a worksheet',
-                                border: OutlineInputBorder(),
-                                prefixIcon: Icon(Icons.assignment),
+                        const SizedBox(height: 16),
+                        _isLoadingWorksheets
+                            ? const Center(child: CircularProgressIndicator())
+                            : DropdownButtonFormField<String>(
+                                value: _selectedWorksheetId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Associated Worksheet*',
+                                  hintText: 'Select a worksheet',
+                                  border: OutlineInputBorder(),
+                                  prefixIcon: Icon(Icons.assignment),
+                                ),
+                                items: _availableWorksheets.map((worksheet) {
+                                  return DropdownMenuItem<String>(
+                                    value: worksheet['id']?.toString(),
+                                    child: Text(
+                                      worksheet['title']?.toString() ??
+                                          'Unknown Worksheet',
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedWorksheetId = value;
+                                  });
+                                },
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return 'Please select a worksheet';
+                                  }
+                                  return null;
+                                },
                               ),
-                              items: _availableWorksheets.map((worksheet) {
-                                return DropdownMenuItem<String>(
-                                  value: worksheet['id']?.toString(),
-                                  child: Text(
-                                    worksheet['title']?.toString() ??
-                                        'Unknown Worksheet',
-                                  ),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() {
-                                  _selectedWorksheetId = value;
-                                });
-                              },
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'Please select a worksheet';
-                                }
-                                return null;
-                              },
-                            ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
 
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ],
 
               // State Selection (only for editing)
               if (_isEditing) ...[

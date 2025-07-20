@@ -174,24 +174,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Função para filtrar parcelas baseada no role do utilizador
     function filterParcelsForUser(parcels) {
-        // Se é PO mas NÃO tem roles de gestão (SYSADMIN, SYSBO, PRBO), aplicar filtro restrito
-        if (hasRole('PO') && !hasRole('SYSADMIN') && !hasRole('SYSBO') && !hasRole('PRBO')) {
-            const filteredParcels = parcels.filter(parcel => {
-                const parcelExec = parcel.parcelExecution;
-                const assignedUsername = parcelExec.assignedUsername;
-                
-                const shouldShow = !assignedUsername || 
-                                 assignedUsername === '' || 
-                                 assignedUsername === username;
-                
-                return shouldShow;
-            });
-            
-            return filteredParcels;
+        // Apenas PRBO, SMBO e SYSADMIN podem ver todas as parcelas
+        if (hasRole('PRBO') || hasRole('SMBO') || hasRole('SYSADMIN')) {
+            return parcels; // Mostrar todas as parcelas para estes roles
         }
 
-        // Para todos os outros casos (gestores, utilizadores sem PO, etc.), mostrar todas as parcelas
-        return parcels;
+        // Para todos os outros utilizadores (incluindo POs), aplicar filtro restrito
+        const filteredParcels = parcels.filter(parcel => {
+            const parcelExec = parcel.parcelExecution;
+            const assignedUsername = parcelExec.assignedUsername;
+            
+            // Mostrar apenas se:
+            // 1. Não está atribuída a ninguém (parcela legacy)
+            // 2. Está atribuída ao utilizador atual
+            const shouldShow = !assignedUsername || 
+                             assignedUsername === '' || 
+                             assignedUsername === username;
+            
+            return shouldShow;
+        });
+        
+        return filteredParcels;
     }
 
     function showLoading() {
@@ -415,9 +418,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="operation-card">
                 <div class="operation-header">
                     <div class="operation-title">Operation ${opExec.operationId}</div>
-                </div>
-                <div class="operation-actions" style="margin: 10px 0; text-align: right;">
-                    ${canManage() ? `<button class="btn-edit" onclick="editOperationExecution('${opExec.id}')">Edit</button>` : ''}
                 </div>
                 <div class="detail-grid" style="margin-top: 15px;">
                     <div class="detail-item">

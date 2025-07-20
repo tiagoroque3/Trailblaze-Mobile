@@ -1,5 +1,3 @@
-
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -186,9 +184,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 )
               : ElevatedButton.icon(
@@ -204,9 +205,12 @@ class _MainAppScreenState extends State<MainAppScreen> {
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20)),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
                   ),
                 ),
           const SizedBox(width: 10),
@@ -222,8 +226,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 widget.isLoggedIn
                     ? 'Welcome, ${_displayUsername ?? 'User'}'
                     : 'Guest Mode',
-                style:
-                    const TextStyle(color: Colors.white, fontSize: 24),
+                style: const TextStyle(color: Colors.white, fontSize: 24),
               ),
             ),
             // User Details
@@ -317,7 +320,8 @@ class _MainAppScreenState extends State<MainAppScreen> {
               title: const Text('Events'),
               onTap: () {
                 Navigator.pop(context);
-                if (widget.isLoggedIn && _displayRoles?.contains('RU') == true) {
+                if (widget.isLoggedIn &&
+                    _displayRoles?.contains('RU') == true) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -358,46 +362,13 @@ class _MainAppScreenState extends State<MainAppScreen> {
                   }
                 },
               ),
-            // Management Divider
-            if (_displayRoles != null &&
-                (_displayRoles!.contains('PRBO') ||
-                    _displayRoles!.contains('SDVBO') ||
-                    _displayRoles!.contains('SYSADMIN'))) ...[
-              const Divider(),
-              const Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: Text(
-                  'Management',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-              ListTile(
-                leading: const Icon(Icons.admin_panel_settings),
-                title: const Text('Execution Management'),
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content:
-                          Text('Management interface coming soon'),
-                      backgroundColor: Colors.orange,
-                    ),
-                  );
-                },
-              ),
-            ],
+            // Management section was removed per user request
           ],
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding:
-              const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -420,14 +391,19 @@ class _MainAppScreenState extends State<MainAppScreen> {
               ElevatedButton.icon(
                 onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                 icon: const Icon(Icons.menu, color: Colors.white),
-                label: const Text('Open Menu',
-                    style: TextStyle(color: Colors.white)),
+                label: const Text(
+                  'Open Menu',
+                  style: TextStyle(color: Colors.white),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4F695B),
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 15),
+                    horizontal: 20,
+                    vertical: 15,
+                  ),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
             ],
@@ -447,8 +423,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
     if (rm.isPrbo) descs.add('Project Manager');
     if (rm.isSdvbo) descs.add('System Manager');
     if (_displayRoles!.contains('RU')) descs.add('Event Participant');
-    if (_displayRoles!.contains('SYSADMIN'))
-      descs.add('System Administrator');
+    if (_displayRoles!.contains('SYSADMIN')) descs.add('System Administrator');
     return descs.isNotEmpty ? descs.join(' • ') : _displayRoles!.join(', ');
   }
 }

@@ -1,6 +1,7 @@
 class ExecutionSheet {
   final String id;
   final String title;
+  final String? description; // Added description field
   final String state;
   final String associatedWorkSheetId;
   final String associatedUser;
@@ -12,6 +13,7 @@ class ExecutionSheet {
   ExecutionSheet({
     required this.id,
     required this.title,
+    this.description, // Added description parameter
     required this.state,
     required this.associatedWorkSheetId,
     required this.associatedUser,
@@ -25,6 +27,7 @@ class ExecutionSheet {
     return ExecutionSheet(
       id: json['id'] ?? '',
       title: json['title'] ?? 'No Title',
+      description: json['description'], // Added description parsing
       state: json['state'] ?? 'PENDING',
       associatedWorkSheetId: json['associatedWorkSheetId'] ?? '',
       associatedUser: json['associatedUser'] ?? '',
