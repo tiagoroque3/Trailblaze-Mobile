@@ -315,6 +315,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                           userRoles: _displayRoles,
                         ),
                       ),
+
                     );
                   } else {
                     _showGuestLoginDialog();
@@ -345,6 +346,7 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 },
               ),
             // Management section was removed per user request
+
           ],
         ),
       ),
