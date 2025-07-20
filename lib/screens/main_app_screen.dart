@@ -137,22 +137,6 @@ class _MainAppScreenState extends State<MainAppScreen> {
     );
   }
 
-  void _showRoleRequiredDialog(String role) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Insufficient Permissions'),
-        content: Text('You need the "$role" role to access this feature.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
-
   bool get _isRUorAdmin =>
       _displayRoles?.contains('RU') == true ||
       _displayRoles?.contains('SYSADMIN') == true;
@@ -314,31 +298,29 @@ class _MainAppScreenState extends State<MainAppScreen> {
                 );
               },
             ),
-            // Events
-            ListTile(
-              leading: const Icon(Icons.event),
-              title: const Text('Events'),
-              onTap: () {
-                Navigator.pop(context);
-                if (widget.isLoggedIn &&
-                    _displayRoles?.contains('RU') == true) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EventsScreen(
-                        username: widget.username!,
-                        jwtToken: widget.jwtToken!,
-                        userRoles: _displayRoles,
+            // Events (RU only)
+            if (_displayRoles?.contains('RU') == true)
+              ListTile(
+                leading: const Icon(Icons.event),
+                title: const Text('Events'),
+                onTap: () {
+                  Navigator.pop(context);
+                  if (widget.isLoggedIn) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventsScreen(
+                          username: widget.username!,
+                          jwtToken: widget.jwtToken!,
+                          userRoles: _displayRoles,
+                        ),
                       ),
-                    ),
-                  );
-                } else if (!widget.isLoggedIn) {
-                  _showGuestLoginDialog();
-                } else {
-                  _showRoleRequiredDialog('RU');
-                }
-              },
-            ),
+                    );
+                  } else {
+                    _showGuestLoginDialog();
+                  }
+                },
+              ),
             // Trails (RU or Admin)
             if (_isRUorAdmin)
               ListTile(
@@ -368,44 +350,326 @@ class _MainAppScreenState extends State<MainAppScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+          padding: const EdgeInsets.all(16),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Image.asset('assets/images/logo.png', height: 200),
-              const SizedBox(height: 20),
-              Text(
-                'Welcome to the TrailBlaze App!',
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.isLoggedIn
-                    ? 'You are logged in as ${_displayUsername ?? 'User'}.\n${_buildRoleDescription()}'
-                    : 'You are in guest mode. Some features may be limited.',
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton.icon(
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-                icon: const Icon(Icons.menu, color: Colors.white),
-                label: const Text(
-                  'Open Menu',
-                  style: TextStyle(color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF4F695B),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 15,
+              // Header section with logo and welcome
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF4F695B), Color(0xFF6B8A7A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Column(
+                  children: [
+                    Image.asset('assets/images/logo.png', height: 120),
+                    const SizedBox(height: 15),
+                    Text(
+                      widget.isLoggedIn
+                          ? 'Welcome, ${_displayUsername ?? 'User'}!'
+                          : 'Guest Mode',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.isLoggedIn
+                          ? _buildRoleDescription()
+                          : 'Some features may be limited',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(height: 25),
+              
+              // Quick Access section
+              if (widget.isLoggedIn) ...[
+                Text(
+                  'Quick Access',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+                const SizedBox(height: 15),
+                
+                // Main features grid
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 15,
+                  mainAxisSpacing: 15,
+                  childAspectRatio: 1.1,
+                  children: [
+                    // User Details
+                    _buildFeatureCard(
+                      icon: Icons.person_outline,
+                      title: 'Profile',
+                      subtitle: 'View account details',
+                      color: Colors.blue,
+                      onTap: () {
+                        if (widget.username != null && widget.jwtToken != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserDetailsScreen(
+                                username: widget.username!,
+                                jwtToken: widget.jwtToken!,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    
+                    // Map
+                    _buildFeatureCard(
+                      icon: Icons.map_outlined,
+                      title: 'Map',
+                      subtitle: 'Explore locations',
+                      color: Colors.green,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MapScreen(
+                              username: widget.username,
+                              jwtToken: widget.jwtToken,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    // PO specific
+                    if (_displayRoles?.contains('PO') == true)
+                      _buildFeatureCard(
+                        icon: Icons.build_outlined,
+                        title: 'Operations',
+                        subtitle: 'Field operations',
+                        color: Colors.orange,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PoExecutionDashboard(
+                                username: widget.username!,
+                                jwtToken: widget.jwtToken!,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    
+                    // PRBO specific
+                    if (_displayRoles?.contains('PRBO') == true)
+                      _buildFeatureCard(
+                        icon: Icons.assignment_outlined,
+                        title: 'Sheets',
+                        subtitle: 'Execution sheets',
+                        color: Colors.purple,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ExecutionSheetsScreen(
+                                username: widget.username!,
+                                jwtToken: widget.jwtToken!,
+                                roles: _displayRoles!,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    
+                    // Events (RU)
+                    if (_displayRoles?.contains('RU') == true)
+                      _buildFeatureCard(
+                        icon: Icons.event_outlined,
+                        title: 'Events',
+                        subtitle: 'Participate in events',
+                        color: Colors.red,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EventsScreen(
+                                username: widget.username!,
+                                jwtToken: widget.jwtToken!,
+                                userRoles: _displayRoles,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    
+                    // Trails (RU or Admin)
+                    if (_isRUorAdmin)
+                      _buildFeatureCard(
+                        icon: Icons.route_outlined,
+                        title: 'Trails',
+                        subtitle: 'Manage trails',
+                        color: Colors.teal,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TrailsScreen(
+                                username: widget.username!,
+                                jwtToken: widget.jwtToken!,
+                                userRoles: _displayRoles!,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+                
+                const SizedBox(height: 25),
+              ],
+              
+              // Recent Activity section
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: const Color(0xFF4F695B),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'About TrailBlaze',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey[800],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'TrailBlaze is a complete platform for managing trails and outdoor activities. '
+                        'Explore maps, participate in events and manage your field operations efficiently.',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+                          icon: const Icon(Icons.menu, size: 20),
+                          label: const Text('View All Features'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4F695B),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              
+              if (!widget.isLoggedIn) ...[
+                const SizedBox(height: 20),
+                Card(
+                  elevation: 3,
+                  color: Colors.blue[50],
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.login_outlined,
+                          size: 48,
+                          color: Colors.blue[700],
+                        ),
+                        const SizedBox(height: 15),
+                        Text(
+                          'Login for Full Access',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Access all TrailBlaze features by logging into your account.',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.blue[600],
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 15),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              );
+                            },
+                            icon: const Icon(Icons.login, size: 20),
+                            label: const Text('Login'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -425,5 +689,62 @@ class _MainAppScreenState extends State<MainAppScreen> {
     if (_displayRoles!.contains('RU')) descs.add('Event Participant');
     if (_displayRoles!.contains('SYSADMIN')) descs.add('System Administrator');
     return descs.isNotEmpty ? descs.join(' • ') : _displayRoles!.join(', ');
+  }
+
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  size: 32,
+                  color: color,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:trailblaze_app/screens/login_screen.dart';
-import 'package:trailblaze_app/screens/main_app_screen.dart'; // Import the new screen
 import 'package:trailblaze_app/screens/register_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -99,25 +98,7 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: 20), // Space for the new text button
-
-                // "Guest" text button
-                TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => MainAppScreen(isLoggedIn: false)),
-                    );
-                  },
-                  child: Text(
-                    'Enter Guest Mode',
-                    style: TextStyle(
-                      fontSize: 18,
-                      color: Colors.white,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
+                // Removed Guest Mode option per user request
               ],
             ),
           ),
