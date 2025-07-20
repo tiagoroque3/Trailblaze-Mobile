@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
-import 'package:trailblaze_app/models/trail.dart';
-import 'package:trailblaze_app/services/trail_service.dart';
-import 'package:trailblaze_app/screens/trail_recording_screen.dart';
-import 'package:trailblaze_app/screens/trail_details_screen.dart';
-import 'package:trailblaze_app/utils/app_constants.dart';
+import 'package:intl/intl.dart';
+import '../models/trail.dart';
+import '../services/trail_service.dart';
+import '../utils/app_constants.dart';
+import 'create_trail_screen.dart';
+import 'trail_detail_screen.dart';
 
 class TrailsScreen extends StatefulWidget {
   final String username;
   final String jwtToken;
-  final List<String> userRoles;
+  final List<String>? userRoles;
 
   const TrailsScreen({
     super.key,
     required this.username,
     required this.jwtToken,
-    required this.userRoles,
+    this.userRoles,
   });
 
   @override
@@ -22,15 +23,16 @@ class TrailsScreen extends StatefulWidget {
 }
 
 class _TrailsScreenState extends State<TrailsScreen> {
-  List<Trail> _trails = [];
-  bool _isLoading = true;
-  String? _error;
+  bool _isLoading = false;
+  List<Trail> _allTrails = [];
+  List<Trail> _filteredTrails = [];
   String _selectedFilter = 'all';
 
   final Map<String, String> _filterOptions = {
     'all': 'All Trails',
     'my': 'My Trails',
     'public': 'Public Trails',
+    'private': 'Private Trails',
   };
 
   @override
@@ -39,40 +41,59 @@ class _TrailsScreenState extends State<TrailsScreen> {
     _loadTrails();
   }
 
-  bool get _hasAccess {
-    return widget.userRoles.contains('RU') || widget.userRoles.contains('SYSADMIN');
-  }
-
   Future<void> _loadTrails() async {
-    if (!_hasAccess) return;
-
     setState(() {
       _isLoading = true;
-      _error = null;
     });
 
     try {
-      final trails = await TrailService.fetchTrails(jwtToken: widget.jwtToken);
+      final trails = await TrailService.getAllTrails(jwtToken: widget.jwtToken);
       setState(() {
-        _trails = trails;
-        _isLoading = false;
+        _allTrails = trails;
+        _applyFilter();
       });
     } catch (e) {
+      _showSnackBar('Error loading trails: $e', isError: true);
+    } finally {
       setState(() {
-        _error = e.toString();
         _isLoading = false;
       });
     }
   }
 
-  List<Trail> get _filteredTrails {
+  void _applyFilter() {
     switch (_selectedFilter) {
       case 'my':
-        return _trails.where((trail) => trail.createdBy == widget.username).toList();
+        _filteredTrails = _allTrails
+            .where((trail) => trail.createdBy == widget.username)
+            .toList();
+        break;
       case 'public':
-        return _trails.where((trail) => trail.visibility == TrailVisibility.PUBLIC).toList();
+        _filteredTrails = _allTrails
+            .where((trail) => trail.visibility == TrailVisibility.PUBLIC)
+            .toList();
+        break;
+      case 'private':
+        _filteredTrails = _allTrails
+            .where((trail) => 
+                trail.visibility == TrailVisibility.PRIVATE && 
+                trail.createdBy == widget.username)
+            .toList();
+        break;
       default:
-        return _trails;
+        _filteredTrails = _allTrails;
+    }
+    
+    // Sort by creation date (newest first)
+    _filteredTrails.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }
+
+  void _onFilterChanged(String? newFilter) {
+    if (newFilter != null) {
+      setState(() {
+        _selectedFilter = newFilter;
+        _applyFilter();
+      });
     }
   }
 
@@ -85,26 +106,63 @@ class _TrailsScreenState extends State<TrailsScreen> {
     );
   }
 
+  Future<void> _deleteTrail(Trail trail) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Trail'),
+        content: Text('Are you sure you want to delete "${trail.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await TrailService.deleteTrail(
+          jwtToken: widget.jwtToken,
+          trailId: trail.id,
+        );
+        _showSnackBar('Trail deleted successfully');
+        _loadTrails();
+      } catch (e) {
+        _showSnackBar('Error deleting trail: $e', isError: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!_hasAccess) {
+    // Check if user has RU role
+    final bool hasRURole = widget.userRoles?.contains('RU') == true;
+
+    if (!hasRURole) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Access Denied'),
           backgroundColor: AppColors.primaryGreen,
         ),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
+              const Icon(
                 Icons.lock,
                 size: 80,
                 color: Colors.grey,
               ),
-              SizedBox(height: 20),
-              Text(
-                'You need RU or SYSADMIN role to access trails.',
+              const SizedBox(height: 20),
+              const Text(
+                'You need the "RU" role to access trails.',
                 style: TextStyle(fontSize: 18, color: Colors.black54),
                 textAlign: TextAlign.center,
               ),
@@ -161,29 +219,38 @@ class _TrailsScreenState extends State<TrailsScreen> {
                         child: Text(entry.value),
                       );
                     }).toList(),
-                    onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _selectedFilter = value;
-                        });
-                      }
-                    },
+                    onChanged: _onFilterChanged,
                   ),
                 ),
               ],
             ),
           ),
 
-          // Content
-          Expanded(child: _buildContent()),
+          // Trails list
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _filteredTrails.isEmpty
+                    ? _buildEmptyState()
+                    : RefreshIndicator(
+                        onRefresh: _loadTrails,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16.0),
+                          itemCount: _filteredTrails.length,
+                          itemBuilder: (context, index) {
+                            return _buildTrailCard(_filteredTrails[index]);
+                          },
+                        ),
+                      ),
+          ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TrailRecordingScreen(
+              builder: (context) => CreateTrailScreen(
                 username: widget.username,
                 jwtToken: widget.jwtToken,
               ),
@@ -191,100 +258,65 @@ class _TrailsScreenState extends State<TrailsScreen> {
           ).then((_) => _loadTrails());
         },
         backgroundColor: AppColors.primaryGreen,
-        icon: const Icon(Icons.add_location_alt),
-        label: const Text('New Trail'),
+        child: const Icon(Icons.add, color: Colors.white),
+        tooltip: 'Create New Trail',
       ),
     );
   }
 
-  Widget _buildContent() {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppColors.primaryGreen),
-      );
+  Widget _buildEmptyState() {
+    String message;
+    String description;
+
+    switch (_selectedFilter) {
+      case 'my':
+        message = 'No trails created yet';
+        description = 'Create your first trail to get started';
+        break;
+      case 'public':
+        message = 'No public trails available';
+        description = 'Public trails will appear here when created';
+        break;
+      case 'private':
+        message = 'No private trails';
+        description = 'Your private trails will appear here';
+        break;
+      default:
+        message = 'No trails available';
+        description = 'Create your first trail or check back later';
     }
 
-    if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
-            const SizedBox(height: 16),
-            Text(
-              'Error loading trails',
-              style: Theme.of(context).textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadTrails,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    final filteredTrails = _filteredTrails;
-
-    if (filteredTrails.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.route_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No trails found',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create your first trail by tapping the + button',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey.shade500,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: _loadTrails,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: filteredTrails.length,
-        itemBuilder: (context, index) {
-          final trail = filteredTrails[index];
-          return _buildTrailCard(trail);
-        },
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.route,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.grey.shade600,
+                ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.grey.shade500,
+                ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTrailCard(Trail trail) {
-    final isOwner = trail.createdBy == widget.username;
-    final distance = trail.totalDistance;
+    final isMyTrail = trail.createdBy == widget.username;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
@@ -296,10 +328,10 @@ class _TrailsScreenState extends State<TrailsScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => TrailDetailsScreen(
+              builder: (context) => TrailDetailScreen(
                 trail: trail,
-                username: widget.username,
                 jwtToken: widget.jwtToken,
+                username: widget.username,
               ),
             ),
           ).then((_) => _loadTrails());
@@ -321,100 +353,91 @@ class _TrailsScreenState extends State<TrailsScreen> {
                       ),
                     ),
                   ),
-                  _buildStatusChip(trail),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.person,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isOwner ? 'You' : trail.createdBy,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                      fontWeight: isOwner ? FontWeight.w600 : FontWeight.normal,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.calendar_today,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    trail.formattedDate,
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(
-                    Icons.route,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${trail.points.length} points',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.straighten,
-                    size: 16,
-                    color: Colors.grey.shade600,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    distance > 1000
-                        ? '${(distance / 1000).toStringAsFixed(2)} km'
-                        : '${distance.toStringAsFixed(0)} m',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              if (trail.observations.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.comment,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${trail.observations.length} observation${trail.observations.length == 1 ? '' : 's'}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  _buildVisibilityChip(trail.visibility),
+                  if (isMyTrail) ...[
+                    const SizedBox(width: 8),
+                    PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'delete') {
+                          _deleteTrail(trail);
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete, size: 20, color: Colors.red),
+                              SizedBox(width: 8),
+                              Text('Delete', style: TextStyle(color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                      ],
+                      child: const Icon(Icons.more_vert, color: Colors.grey),
                     ),
                   ],
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Created by ${trail.createdBy}',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Created on ${DateFormat('MMM dd, yyyy').format(trail.createdAt)}',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
+              if (trail.worksheetId != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Associated with Worksheet ${trail.worksheetId}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
-              if (trail.worksheetProximities.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Icon(
-                      Icons.warning_amber,
-                      size: 16,
-                      color: Colors.orange.shade600,
+                    _buildStatColumn(
+                      'Distance',
+                      trail.formattedDistance,
+                      Icons.straighten,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${trail.worksheetProximities.length} proximity alert${trail.worksheetProximities.length == 1 ? '' : 's'}',
-                      style: TextStyle(fontSize: 14, color: Colors.orange.shade600),
+                    _buildStatColumn(
+                      'Duration',
+                      trail.formattedDuration,
+                      Icons.timer,
+                    ),
+                    _buildStatColumn(
+                      'Points',
+                      '${trail.points.length}',
+                      Icons.location_on,
+                    ),
+                    _buildStatColumn(
+                      'Notes',
+                      '${trail.observations.length}',
+                      Icons.note,
                     ),
                   ],
                 ),
+              ),
+              if (trail.visibility == TrailVisibility.PRIVATE && 
+                  trail.status != null && 
+                  isMyTrail) ...[
+                const SizedBox(height: 8),
+                _buildStatusChip(trail.status!),
               ],
               const SizedBox(height: 12),
               Row(
@@ -438,32 +461,57 @@ class _TrailsScreenState extends State<TrailsScreen> {
     );
   }
 
-  Widget _buildStatusChip(Trail trail) {
+  Widget _buildVisibilityChip(TrailVisibility visibility) {
+    final isPublic = visibility == TrailVisibility.PUBLIC;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isPublic ? Colors.green.shade100 : Colors.orange.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isPublic ? Icons.public : Icons.lock,
+            size: 12,
+            color: isPublic ? Colors.green.shade800 : Colors.orange.shade800,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isPublic ? 'Public' : 'Private',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isPublic ? Colors.green.shade800 : Colors.orange.shade800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(TrailStatus status) {
     Color backgroundColor;
     Color textColor;
-    String text;
+    IconData icon;
 
-    if (trail.visibility == TrailVisibility.PUBLIC) {
-      backgroundColor = Colors.green.shade100;
-      textColor = Colors.green.shade800;
-      text = 'Public';
-    } else {
-      switch (trail.status) {
-        case TrailStatus.ACTIVE:
-          backgroundColor = Colors.blue.shade100;
-          textColor = Colors.blue.shade800;
-          text = 'Active';
-          break;
-        case TrailStatus.COMPLETED:
-          backgroundColor = Colors.orange.shade100;
-          textColor = Colors.orange.shade800;
-          text = 'Completed';
-          break;
-        default:
-          backgroundColor = Colors.grey.shade100;
-          textColor = Colors.grey.shade800;
-          text = 'Private';
-      }
+    switch (status) {
+      case TrailStatus.ACTIVE:
+        backgroundColor = Colors.blue.shade100;
+        textColor = Colors.blue.shade800;
+        icon = Icons.play_circle;
+        break;
+      case TrailStatus.COMPLETED:
+        backgroundColor = Colors.green.shade100;
+        textColor = Colors.green.shade800;
+        icon = Icons.check_circle;
+        break;
+      case TrailStatus.PAUSED:
+        backgroundColor = Colors.orange.shade100;
+        textColor = Colors.orange.shade800;
+        icon = Icons.pause_circle;
+        break;
     }
 
     return Container(
@@ -472,14 +520,42 @@ class _TrailsScreenState extends State<TrailsScreen> {
         color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: textColor,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: textColor),
+          const SizedBox(width: 4),
+          Text(
+            status.name.toLowerCase(),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildStatColumn(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        Icon(icon, size: 16, color: Colors.grey.shade600),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primaryGreen,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        ),
+      ],
     );
   }
 }

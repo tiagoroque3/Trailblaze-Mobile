@@ -1,61 +1,43 @@
+import 'dart:convert';
+import 'dart:math';
+enum TrailVisibility { PRIVATE, PUBLIC }
 
-import 'dart:math' as math;
-
-
-class WorksheetProximity {
-  final String worksheetId;
-  final String worksheetName;
-  final String posp;
-  final double distanceKm;
-
-  WorksheetProximity({
-    required this.worksheetId,
-    required this.worksheetName,
-    required this.posp,
-    required this.distanceKm,
-  });
-
-  factory WorksheetProximity.fromJson(Map<String, dynamic> json) {
-    return WorksheetProximity(
-      worksheetId: json['worksheetId'] as String,
-      worksheetName: json['worksheetName'] as String,
-      posp: json['posp'] as String,
-      distanceKm: (json['distanceKm'] as num).toDouble(),
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'worksheetId': worksheetId,
-      'worksheetName': worksheetName,
-      'posp': posp,
-      'distanceKm': distanceKm,
-    };
-  }
-}
+enum TrailStatus { ACTIVE, COMPLETED, PAUSED }
 
 class TrailPoint {
   final double latitude;
   final double longitude;
+  final DateTime timestamp;
+  final double? altitude;
 
-  TrailPoint({required this.latitude, required this.longitude});
+  TrailPoint({
+    required this.latitude,
+    required this.longitude,
+    required this.timestamp,
+    this.altitude,
+  });
 
   factory TrailPoint.fromJson(Map<String, dynamic> json) {
     return TrailPoint(
       latitude: (json['latitude'] as num).toDouble(),
       longitude: (json['longitude'] as num).toDouble(),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
+      altitude: json['altitude'] != null ? (json['altitude'] as num).toDouble() : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'latitude': latitude, 'longitude': longitude};
+    return {
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': timestamp.millisecondsSinceEpoch,
+      if (altitude != null) 'altitude': altitude,
+    };
   }
 
-  bool isValid() {
-    return latitude >= -90 &&
-        latitude <= 90 &&
-        longitude >= -180 &&
-        longitude <= 180;
+  bool get isValid {
+    return latitude >= -90 && latitude <= 90 && 
+           longitude >= -180 && longitude <= 180;
   }
 }
 
@@ -87,33 +69,27 @@ class TrailObservation {
   }
 }
 
-enum TrailVisibility { PUBLIC, PRIVATE }
-
-enum TrailStatus { ACTIVE, COMPLETED }
-
 class Trail {
   final String id;
   final String name;
   final String createdBy;
-  final String worksheetId;
+  final String? worksheetId;
   final TrailVisibility visibility;
   final TrailStatus? status;
   final DateTime createdAt;
   final List<TrailPoint> points;
   final List<TrailObservation> observations;
-  final List<WorksheetProximity> worksheetProximities;
 
   Trail({
     required this.id,
     required this.name,
     required this.createdBy,
-    required this.worksheetId,
+    this.worksheetId,
     required this.visibility,
     this.status,
     required this.createdAt,
     required this.points,
     required this.observations,
-    this.worksheetProximities = const [],
   });
 
   factory Trail.fromJson(Map<String, dynamic> json) {
@@ -121,34 +97,39 @@ class Trail {
       id: json['id'] as String,
       name: json['name'] as String,
       createdBy: json['createdBy'] as String,
-      worksheetId: json['worksheetId'] as String,
+      worksheetId: json['worksheetId'] as String?,
       visibility: TrailVisibility.values.firstWhere(
         (e) => e.name == json['visibility'],
         orElse: () => TrailVisibility.PRIVATE,
       ),
-      status: json['status'] != null
-          ? TrailStatus.values.firstWhere(
-              (e) => e.name == json['status'],
-              orElse: () => TrailStatus.ACTIVE,
-            )
-          : null,
+      status: json['status'] != null 
+        ? TrailStatus.values.firstWhere(
+            (e) => e.name == json['status'],
+            orElse: () => TrailStatus.ACTIVE,
+          )
+        : null,
       createdAt: DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int),
-      points:
-          (json['points'] as List<dynamic>?)
-              ?.map((p) => TrailPoint.fromJson(p as Map<String, dynamic>))
-              .toList() ??
-          [],
-      observations:
-          (json['observations'] as List<dynamic>?)
-              ?.map((o) => TrailObservation.fromJson(o as Map<String, dynamic>))
-              .toList() ??
-          [],
-      worksheetProximities:
-          (json['worksheetProximities'] as List<dynamic>?)
-              ?.map((w) => WorksheetProximity.fromJson(w as Map<String, dynamic>))
-              .toList() ??
-          [],
+      points: (json['points'] as List<dynamic>?)
+          ?.map((p) => TrailPoint.fromJson(p as Map<String, dynamic>))
+          .toList() ?? [],
+      observations: (json['observations'] as List<dynamic>?)
+          ?.map((o) => TrailObservation.fromJson(o as Map<String, dynamic>))
+          .toList() ?? [],
     );
+  }
+
+  // Helper method to handle different timestamp formats from backend
+  static DateTime _parseTimestamp(dynamic timestamp) {
+    if (timestamp is int) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
+    } else if (timestamp is String) {
+      try {
+        return DateTime.parse(timestamp);
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
   }
 
   Map<String, dynamic> toJson() {
@@ -156,13 +137,12 @@ class Trail {
       'id': id,
       'name': name,
       'createdBy': createdBy,
-      'worksheetId': worksheetId,
+      if (worksheetId != null) 'worksheetId': worksheetId,
       'visibility': visibility.name,
-      'status': status?.name,
+      if (status != null) 'status': status!.name,
       'createdAt': createdAt.millisecondsSinceEpoch,
       'points': points.map((p) => p.toJson()).toList(),
       'observations': observations.map((o) => o.toJson()).toList(),
-      'worksheetProximities': worksheetProximities.map((w) => w.toJson()).toList(),
     };
   }
 
@@ -174,72 +154,57 @@ class Trail {
     return createdBy == username || visibility == TrailVisibility.PUBLIC;
   }
 
-  String get formattedDate {
-    return '${createdAt.day}/${createdAt.month}/${createdAt.year}';
-  }
-
-  String get statusText {
-    if (visibility == TrailVisibility.PUBLIC) return 'Public';
-    return status?.name ?? 'Active';
-  }
-
-  double get totalDistance {
-    if (points.length < 2) return 0.0;
-
-    double total = 0.0;
+  String get formattedDistance {
+    if (points.length < 2) return '0.0 km';
+    
+    double totalDistance = 0.0;
     for (int i = 1; i < points.length; i++) {
-      total += _calculateDistance(points[i - 1], points[i]);
+      totalDistance += _calculateDistance(
+        points[i - 1].latitude,
+        points[i - 1].longitude,
+        points[i].latitude,
+        points[i].longitude,
+      );
     }
-    return total;
+    
+    return '${totalDistance.toStringAsFixed(2)} km';
   }
 
- double _degToRad(double deg) => deg * math.pi / 180;
-
-  double _calculateDistance(TrailPoint p1, TrailPoint p2) {
-    const double earthRadius = 6_371_000; // metros
-
-    final lat1Rad = _degToRad(p1.latitude);
-    final lat2Rad = _degToRad(p2.latitude);
-    final deltaLatRad = _degToRad(p2.latitude - p1.latitude);
-    final deltaLngRad = _degToRad(p2.longitude - p1.longitude);
-
-
-    final a = math.sin(deltaLatRad / 2) * math.sin(deltaLatRad / 2) +
-        math.cos(lat1Rad) * math.cos(lat2Rad) *
-        math.sin(deltaLngRad / 2) * math.sin(deltaLngRad / 2);
-
-    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-
-    return earthRadius * c; // distância em metros
+  Duration get duration {
+    if (points.isEmpty) return Duration.zero;
+    if (points.length == 1) return Duration.zero;
+    
+    return points.last.timestamp.difference(points.first.timestamp);
   }
+
+  String get formattedDuration {
+    final d = duration;
+    final hours = d.inHours;
+    final minutes = d.inMinutes.remainder(60);
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m';
+    } else {
+      return '${minutes}m';
+    }
+  }
+
+double _calculateDistance(
+    double lat1, double lon1, double lat2, double lon2) {
+  const double earthRadius = 6371.0; // em km
+
+  // converte graus para radianos
+  double toRad(double degree) => degree * pi / 180.0;
+
+  final dLat = toRad(lat2 - lat1);
+  final dLon = toRad(lon2 - lon1);
+
+  final a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(toRad(lat1)) * cos(toRad(lat2)) *
+      sin(dLon / 2) * sin(dLon / 2);
+
+  final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+  return earthRadius * c;
 }
-
-class CreateTrailRequest {
-  final String name;
-  final String worksheetId;
-  final TrailVisibility visibility;
-  final List<TrailPoint> points;
-  final List<WorksheetProximity> worksheetProximities;
-
-  CreateTrailRequest({
-    required this.name,
-    required this.worksheetId,
-    required this.visibility,
-    required this.points,
-    this.worksheetProximities = const [],
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'worksheetId': worksheetId,
-      'visibility': visibility.name,
-      'points': points.map((p) => p.toJson()).toList(),
-      'worksheetProximities': worksheetProximities.map((w) => w.toJson()).toList(),
-    };
-  }
-
-  bool isValid() {
-    return name.trim().isNotEmpty && worksheetId.trim().isNotEmpty;
-  }
 }
