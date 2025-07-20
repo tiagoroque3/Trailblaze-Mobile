@@ -297,7 +297,28 @@ class _TrailDetailScreenState extends State<TrailDetailScreen> {
                     ),
                     if (_trail.worksheetId != null) ...[
                       const SizedBox(height: 8),
-                      _buildDetailRow('Worksheet:', _trail.worksheetId!),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.assignment, color: Colors.blue.shade700, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Associated with Worksheet #${_trail.worksheetId}',
+                              style: TextStyle(
+                                color: Colors.blue.shade800,
+                                fontWeight: FontWeight.w500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                     if (_trail.visibility == TrailVisibility.PRIVATE && 
                         _trail.status != null) ...[

@@ -26,12 +26,14 @@ class TrailService {
         }),
       );
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 201 || response.statusCode == 200) {
         return Trail.fromJson(jsonDecode(response.body));
       } else {
+        print('Trail creation failed: ${response.statusCode} - ${response.body}');
         throw Exception('Failed to create trail: ${response.body}');
       }
     } catch (e) {
+      print('Trail creation error: $e');
       throw Exception('Error creating trail: $e');
     }
   }

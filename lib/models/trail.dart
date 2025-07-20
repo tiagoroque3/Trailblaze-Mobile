@@ -118,6 +118,20 @@ class Trail {
     );
   }
 
+  // Helper method to handle different timestamp formats from backend
+  static DateTime _parseTimestamp(dynamic timestamp) {
+    if (timestamp is int) {
+      return DateTime.fromMillisecondsSinceEpoch(timestamp);
+    } else if (timestamp is String) {
+      try {
+        return DateTime.parse(timestamp);
+      } catch (e) {
+        return DateTime.now();
+      }
+    }
+    return DateTime.now();
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import '../models/trail.dart';
 import '../services/trail_service.dart';
+import '../services/parcel_service.dart';
 import '../utils/app_constants.dart';
 
 class CreateTrailScreen extends StatefulWidget {
@@ -35,12 +36,16 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
   TrailVisibility _selectedVisibility = TrailVisibility.PRIVATE;
   
   LatLng? _currentLocation;
+  List<Map<String, dynamic>> _nearbyWorksheets = [];
+  String? _associatedWorksheetId;
+  bool _isNearWorksheet = false;
   static const LatLng _defaultLocation = LatLng(38.7223, -9.1393); // Lisbon
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadWorksheets();
   }
 
   @override
@@ -81,12 +86,60 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
     }
   }
 
+  Future<void> _loadWorksheets() async {
+    try {
+      final result = await ParcelService.fetchWorksheetsWithParcels(
+        jwtToken: widget.jwtToken,
+      );
+      
+      setState(() {
+        _nearbyWorksheets = List<Map<String, dynamic>>.from(result['worksheets'] ?? []);
+      });
+      
+      _createWorksheetPolygons();
+    } catch (e) {
+      print('Error loading worksheets: $e');
+    }
+  }
+
+  void _createWorksheetPolygons() {
+    Set<Polygon> polygons = {};
+    
+    for (var worksheet in _nearbyWorksheets) {
+      final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
+      
+      for (int i = 0; i < parcels.length; i++) {
+        final parcel = parcels[i];
+        if (parcel['coordinates'] != null && parcel['coordinates'].length >= 3) {
+          List<LatLng> polygonPoints = (parcel['coordinates'] as List<dynamic>)
+              .map((coord) => LatLng(coord[0], coord[1]))
+              .toList();
+          
+          polygons.add(
+            Polygon(
+              polygonId: PolygonId('${worksheet['id']}_${parcel['id']}'),
+              points: polygonPoints,
+              fillColor: Colors.orange.withOpacity(0.2),
+              strokeColor: Colors.orange.withOpacity(0.6),
+              strokeWidth: 2,
+            ),
+          );
+        }
+      }
+    }
+    
+    setState(() {
+      _polygons = polygons;
+    });
+  }
+
   void _startRecording() {
     setState(() {
       _isRecording = true;
       _recordedPoints.clear();
-      _polylines.clear();
       _markers.clear();
+      _associatedWorksheetId = null;
+      _isNearWorksheet = false;
     });
 
     _recordingTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
@@ -121,10 +174,128 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
       setState(() {
         _recordedPoints.add(point);
         _updateMapDisplay();
+        _checkProximityToWorksheets();
       });
     } catch (e) {
       print('Error recording location: $e');
     }
+  }
+
+  void _checkProximityToWorksheets() {
+    if (_recordedPoints.isEmpty || _nearbyWorksheets.isEmpty) return;
+    
+    final currentPoint = _recordedPoints.last;
+    bool foundNearby = false;
+    String? nearestWorksheetId;
+    double minDistance = double.infinity;
+    
+    for (var worksheet in _nearbyWorksheets) {
+      final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
+      
+      for (var parcel in parcels) {
+        if (parcel['coordinates'] != null && parcel['coordinates'].length >= 3) {
+          // Calculate centroid of parcel
+          double avgLat = 0;
+          double avgLng = 0;
+          int count = 0;
+          
+          for (var coord in parcel['coordinates']) {
+            avgLat += coord[0];
+            avgLng += coord[1];
+            count++;
+          }
+          
+          if (count > 0) {
+            avgLat /= count;
+            avgLng /= count;
+            
+            // Calculate distance to current point
+            double distance = Geolocator.distanceBetween(
+              currentPoint.latitude,
+              currentPoint.longitude,
+              avgLat,
+              avgLng,
+            ) / 1000; // Convert to km
+            
+            if (distance <= 5.0) { // Within 5km
+              foundNearby = true;
+              if (distance < minDistance) {
+                minDistance = distance;
+                nearestWorksheetId = worksheet['id'].toString();
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    if (foundNearby && !_isNearWorksheet) {
+      setState(() {
+        _isNearWorksheet = true;
+        _associatedWorksheetId = nearestWorksheetId;
+      });
+      
+      _showWorksheetProximityDialog(nearestWorksheetId!, minDistance);
+    } else if (!foundNearby && _isNearWorksheet) {
+      setState(() {
+        _isNearWorksheet = false;
+      });
+    }
+  }
+
+  void _showWorksheetProximityDialog(String worksheetId, double distance) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Intervention Zone Detected'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'You are currently ${distance.toStringAsFixed(1)}km from Worksheet #$worksheetId.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 12),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.orange.shade700, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Your trail will be automatically associated with this intervention zone.',
+                      style: TextStyle(
+                        color: Colors.orange.shade800,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _updateMapDisplay() {
@@ -132,7 +303,7 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
 
     // Update polyline
     setState(() {
-      _polylines = {
+      _polylines.add(
         Polyline(
           polylineId: const PolylineId('trail'),
           points: _recordedPoints
@@ -141,7 +312,7 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
           color: AppColors.primaryGreen,
           width: 4,
         ),
-      };
+      );
 
       // Add markers for start and current position
       _markers = {
@@ -190,7 +361,11 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
         points: _recordedPoints,
       );
 
-      _showSnackBar('Trail created successfully!');
+      if (_associatedWorksheetId != null) {
+        _showSnackBar('Trail created and associated with Worksheet #$_associatedWorksheetId!');
+      } else {
+        _showSnackBar('Trail created successfully!');
+      }
       Navigator.of(context).pop();
     } catch (e) {
       _showSnackBar('Error creating trail: $e', isError: true);
@@ -361,6 +536,35 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
             ),
             child: Column(
               children: [
+                // Worksheet proximity indicator
+                if (_isNearWorksheet && _associatedWorksheetId != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on, color: Colors.orange.shade700, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Near Worksheet #$_associatedWorksheetId - Trail will be associated',
+                            style: TextStyle(
+                              color: Colors.orange.shade800,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -418,6 +622,7 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
               myLocationButtonEnabled: true,
               polylines: _polylines,
               markers: _markers,
+              polygons: _polygons,
             ),
           ),
         ],
