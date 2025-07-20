@@ -10,6 +10,7 @@ import '../utils/app_constants.dart';
 class CreateTrailScreen extends StatefulWidget {
   final String username;
   final String jwtToken;
+  
 
   const CreateTrailScreen({
     super.key,
@@ -17,6 +18,7 @@ class CreateTrailScreen extends StatefulWidget {
     required this.jwtToken,
   });
 
+  
   @override
   State<CreateTrailScreen> createState() => _CreateTrailScreenState();
 }
@@ -40,7 +42,7 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
   String? _associatedWorksheetId;
   bool _isNearWorksheet = false;
   static const LatLng _defaultLocation = LatLng(38.7223, -9.1393); // Lisbon
-
+  Set<Polygon> _polygons = {};
   @override
   void initState() {
     super.initState();
