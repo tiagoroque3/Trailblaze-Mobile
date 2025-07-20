@@ -78,8 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
             userRoles = payload.roles || (payload.role ? [payload.role] : ['RU']);
             console.log('User roles:', userRoles);
             if (!Array.isArray(userRoles) || userRoles.length === 0) userRoles = ['RU'];
-            primaryRole = userRoles[0] || 'RU';
-            userRoleEl.textContent = userRoles.join(', ');
+            primaryRole = payload.role || userRoles[0] || 'RU';
+            userRoleEl.textContent = primaryRole;
         } catch (error) {
             console.error('Error decoding token:', error);
             userRoles = ['RU'];
@@ -396,6 +396,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+
+        // Initialize photo loading after DOM is updated
+        setTimeout(() => {
+            initializePhotoLoading();
+        }, 100);
     }
 
     function renderOperationCard(operation) {
@@ -410,13 +415,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="operation-card">
                 <div class="operation-header">
                     <div class="operation-title">Operation ${opExec.operationId}</div>
-                    <div class="operation-progress">${progress.toFixed(1)}% Complete</div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" style="width: ${progress}%"></div>
                 </div>
                 <div class="operation-actions" style="margin: 10px 0; text-align: right;">
-                    <button class="btn-view" onclick="viewOperationActivities('${opExec.id}')" style="margin-right: 5px;">View Activities</button>
                     ${canManage() ? `<button class="btn-edit" onclick="editOperationExecution('${opExec.id}')">Edit</button>` : ''}
                 </div>
                 <div class="detail-grid" style="margin-top: 15px;">
@@ -431,10 +431,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="detail-item">
                         <label>Expected Area</label>
                         <span>${opExec.expectedTotalArea || 0} ha</span>
-                    </div>
-                    <div class="detail-item">
-                        <label>Executed Area</label>
-                        <span>${opExec.totalExecutedArea || 0} ha</span>
                     </div>
                     <div class="detail-item">
                         <label>Start Date</label>
@@ -482,20 +478,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span>${parcelExec.expectedArea || 0} ha</span>
                     </div>
                     <div class="detail-item">
-                        <label>Executed Area</label>
-                        <span>${parcelExec.executedArea || 0} ha</span>
-                    </div>
-                    <div class="detail-item">
                         <label>Assigned PO</label>
                         ${parcelExec.assignedUsername ? 
                             `<span>${escapeHtml(parcelExec.assignedUsername)}</span>` : 
                             `<span style="color: #6c757d; font-style: italic;">Not assigned (legacy parcel)</span>`
                         }
                     </div>
-                </div>
-                
-                <div class="parcel-actions" style="margin: 10px 0; text-align: center;">
-                    <button class="btn-view" onclick="viewParcelActivities('${operationId}', '${parcelExec.id}')" style="font-size: 12px; padding: 4px 8px;">View Parcel Activities</button>
                 </div>
                 
                 <div class="activities-list">
@@ -541,15 +529,22 @@ document.addEventListener('DOMContentLoaded', () => {
                             ${canAddInfo ? `<span style="margin-left: 8px; font-size: 9px;">(click × to delete)</span>` : ''}
                         </div>
                         <div class="photo-thumbnails">
-                            ${activity.photoUrls.slice(0, 3).map((url, index) => `
-                                <div class="activity-photo-container">
-                                    <img src="${url}" alt="Activity photo" class="activity-photo-thumb" 
-                                         onclick="viewPhotoModal('${url}')" title="Click to view full size">
+                            ${activity.photoUrls.slice(0, 3).map((url, index) => {
+                                return `
+                                <div class="activity-photo-container" data-photo-index="${index}">
+                                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0yMCAyMkMyMS4xMDQ2IDIyIDIyIDIxLjEwNDYgMjIgMjBDMjIgMTguODk1NCAyMS4xMDQ2IDE4IDIwIDE4QzE4Ljg5NTQgMTggMTggMTguODk1NCAxOCAyMEMxOCAyMS4xMDQ2IDE4Ljg5NTQgMjIgMjAgMjJaIiBmaWxsPSIjOTCA5NyIvPgo8L3N2Zz4K" 
+                                         alt="Loading..." class="activity-photo-thumb loading-placeholder" 
+                                         data-actual-src="${url}" data-activity-id="${activity.id}"
+                                         onclick="viewPhotoModal('${url}')" title="Loading photo...">
+                                    <div class="photo-error" style="display: none; padding: 8px; background: #f8f9fa; border: 1px dashed #dc3545; text-align: center; font-size: 10px; color: #dc3545; border-radius: 4px;">
+                                        ⚠️ Failed to load<br>
+                                        <button onclick="retryPhotoLoad(this)" style="font-size: 9px; padding: 2px 6px; margin-top: 4px; border: 1px solid #dc3545; background: white; color: #dc3545; border-radius: 2px; cursor: pointer;">Retry</button>
+                                    </div>
                                     ${canAddInfo ? `
                                         <button class="delete-photo-btn" onclick="deleteActivityPhoto('${activity.id}', '${url}', event)" title="Delete photo">×</button>
                                     ` : ''}
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                             ${activity.photoUrls.length > 3 ? `
                                 <div class="photo-more" onclick="viewAllPhotos('${activity.id}', ${JSON.stringify(activity.photoUrls).replace(/"/g, '&quot;')})">
                                     +${activity.photoUrls.length - 3} more
@@ -1574,6 +1569,365 @@ document.addEventListener('DOMContentLoaded', () => {
     window.hideActivitiesView = hideActivitiesView;
     window.closeModal = closeModal;
 
+    // Photo loading system with retry mechanism
+    let photoLoadQueue = [];
+    let isLoadingPhotos = false;
+
+    window.initializePhotoLoading = function() {
+        // Find all photo placeholders and queue them for loading
+        const placeholders = document.querySelectorAll('.loading-placeholder[data-actual-src]');
+        photoLoadQueue = Array.from(placeholders);
+        
+        console.log(`Found ${photoLoadQueue.length} photos to load`);
+        
+        if (photoLoadQueue.length > 0 && !isLoadingPhotos) {
+            loadPhotosSequentially();
+        }
+    };
+
+    function loadPhotosSequentially() {
+        if (isLoadingPhotos || photoLoadQueue.length === 0) return;
+        
+        isLoadingPhotos = true;
+        console.log('Starting sequential photo loading...');
+        
+        processNextPhoto();
+    }
+
+    async function processNextPhoto() {
+        if (photoLoadQueue.length === 0) {
+            isLoadingPhotos = false;
+            console.log('All photos processed');
+            return;
+        }
+
+        const placeholder = photoLoadQueue.shift();
+        if (!placeholder || !placeholder.dataset.actualSrc) {
+            processNextPhoto();
+            return;
+        }
+
+        const actualUrl = placeholder.dataset.actualSrc;
+        const activityId = placeholder.dataset.activityId;
+        
+        console.log(`Loading photo for activity ${activityId}:`, actualUrl);
+
+        try {
+            await loadPhotoWithRetry(placeholder, actualUrl, 3);
+        } catch (error) {
+            console.error(`Failed to load photo after retries:`, actualUrl, error);
+            showPhotoError(placeholder);
+        }
+
+        // Small delay between photos to avoid overwhelming the server
+        setTimeout(processNextPhoto, 200);
+    }
+
+    function loadPhotoWithRetry(imgElement, url, retries = 3) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Success - update the placeholder
+                imgElement.src = url;
+                imgElement.title = 'Click to view full size';
+                imgElement.classList.remove('loading-placeholder');
+                console.log('✅ Photo loaded successfully:', url);
+                resolve();
+            };
+            
+            img.onerror = () => {
+                console.warn(`❌ Failed to load photo (${retries} retries left):`, url);
+                
+                // Test the URL directly to get more info about the error
+                fetch(url, { method: 'HEAD' })
+                    .then(response => {
+                        console.log(`HTTP HEAD test for ${url}:`, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers: Object.fromEntries(response.headers.entries())
+                        });
+                    })
+                    .catch(fetchError => {
+                        console.error(`HTTP HEAD test failed for ${url}:`, fetchError);
+                    });
+                
+                if (retries > 0) {
+                    // Retry with exponential backoff
+                    const delay = (4 - retries) * 1000; // 1s, 2s, 3s delays
+                    console.log(`Retrying in ${delay}ms...`);
+                    setTimeout(() => {
+                        loadPhotoWithRetry(imgElement, url, retries - 1)
+                            .then(resolve)
+                            .catch(reject);
+                    }, delay);
+                } else {
+                    reject(new Error(`Failed to load after all retries: ${url}`));
+                }
+            };
+            
+            // Add cache-busting parameter and load
+            const cacheBustUrl = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now() + '&retry=' + (3 - retries);
+            console.log(`Attempting to load photo (retry ${3-retries}):`, cacheBustUrl);
+            img.src = cacheBustUrl;
+        });
+    }
+
+    function showPhotoError(imgElement) {
+        const container = imgElement.closest('.activity-photo-container');
+        if (container) {
+            imgElement.style.display = 'none';
+            const errorDiv = container.querySelector('.photo-error');
+            if (errorDiv) {
+                errorDiv.style.display = 'block';
+            }
+        }
+    }
+
+    window.retryPhotoLoad = function(button) {
+        const container = button.closest('.activity-photo-container');
+        const imgElement = container.querySelector('img');
+        const errorDiv = container.querySelector('.photo-error');
+        
+        if (imgElement && imgElement.dataset.actualSrc) {
+            // Hide error and show loading
+            errorDiv.style.display = 'none';
+            imgElement.style.display = 'block';
+            imgElement.classList.add('loading-placeholder');
+            imgElement.title = 'Retrying...';
+            
+            // Retry loading
+            loadPhotoWithRetry(imgElement, imgElement.dataset.actualSrc, 2)
+                .catch(() => showPhotoError(imgElement));
+        }
+    };
+
+    // Debug function to check photo URLs
+    window.debugPhotos = function() {
+        const activities = getAllActivitiesFromCurrentData();
+        console.log('=== PHOTO DEBUG INFO ===');
+        activities.forEach(activity => {
+            if (activity.photoUrls && activity.photoUrls.length > 0) {
+                console.log(`Activity ${activity.id}:`, {
+                    photoCount: activity.photoUrls.length,
+                    urls: activity.photoUrls,
+                    operator: activity.operatorId
+                });
+                
+                // Test each URL with detailed info
+                activity.photoUrls.forEach((url, index) => {
+                    console.log(`Testing photo ${index + 1}:`, url);
+                    
+                    // Test with Image object
+                    const img = new Image();
+                    img.onload = () => console.log(`✅ Image ${index + 1} accessible:`, url);
+                    img.onerror = () => console.error(`❌ Image ${index + 1} failed:`, url);
+                    img.src = url;
+                    
+                    // Test with Fetch (more detailed)
+                    fetch(url, { method: 'HEAD' })
+                        .then(response => {
+                            console.log(`🔍 HTTP HEAD test ${index + 1}:`, {
+                                url: url,
+                                status: response.status,
+                                statusText: response.statusText,
+                                ok: response.ok,
+                                contentType: response.headers.get('content-type'),
+                                contentLength: response.headers.get('content-length'),
+                                cacheControl: response.headers.get('cache-control'),
+                                lastModified: response.headers.get('last-modified'),
+                                etag: response.headers.get('etag')
+                            });
+                        })
+                        .catch(error => {
+                            console.error(`🚫 HTTP HEAD test ${index + 1} failed:`, url, error);
+                        });
+                    
+                    // Test with full GET request
+                    setTimeout(() => {
+                        fetch(url)
+                            .then(response => {
+                                console.log(`📥 HTTP GET test ${index + 1}:`, {
+                                    url: url,
+                                    status: response.status,
+                                    ok: response.ok,
+                                    size: response.headers.get('content-length')
+                                });
+                                return response.blob();
+                            })
+                            .then(blob => {
+                                console.log(`📦 Blob size ${index + 1}:`, blob.size, 'bytes');
+                            })
+                            .catch(error => {
+                                console.error(`🚫 HTTP GET test ${index + 1} failed:`, url, error);
+                            });
+                    }, index * 500); // Stagger requests
+                });
+            }
+        });
+    };
+
+    // New function to check server health and photo availability
+    window.checkPhotoServerHealth = async function() {
+        console.log('=== PHOTO SERVER HEALTH CHECK ===');
+        
+        const activities = getAllActivitiesFromCurrentData();
+        let allUrls = [];
+        
+        activities.forEach(activity => {
+            if (activity.photoUrls && activity.photoUrls.length > 0) {
+                allUrls = allUrls.concat(activity.photoUrls);
+            }
+        });
+        
+        console.log(`Found ${allUrls.length} photo URLs to check`);
+        
+        if (allUrls.length === 0) {
+            console.log('No photos to check');
+            return;
+        }
+        
+        // Check each URL with detailed timing
+        for (let i = 0; i < allUrls.length; i++) {
+            const url = allUrls[i];
+            const startTime = performance.now();
+            
+            try {
+                const response = await fetch(url, { 
+                    method: 'HEAD',
+                    cache: 'no-cache' // Force fresh request
+                });
+                
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
+                console.log(`� Photo ${i+1}/${allUrls.length}:`, {
+                    url: url.split('/').pop(), // Just filename for brevity
+                    status: response.status,
+                    ok: response.ok,
+                    responseTime: `${responseTime}ms`,
+                    contentType: response.headers.get('content-type'),
+                    contentLength: response.headers.get('content-length'),
+                    server: response.headers.get('server'),
+                    date: response.headers.get('date')
+                });
+                
+            } catch (error) {
+                const endTime = performance.now();
+                const responseTime = Math.round(endTime - startTime);
+                
+                console.error(`❌ Photo ${i+1}/${allUrls.length} failed (${responseTime}ms):`, {
+                    url: url.split('/').pop(),
+                    error: error.message,
+                    type: error.name
+                });
+            }
+            
+            // Small delay to avoid overwhelming server
+            if (i < allUrls.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+        }
+        
+        console.log('=== HEALTH CHECK COMPLETE ===');
+    };
+
+    // Function to test if the issue is with /tmp storage
+    window.testTmpStorageIssue = async function() {
+        console.log('=== TESTING /tmp STORAGE ISSUE ===');
+        
+        // Test upload a simple photo and immediately try to access it
+        try {
+            // Create a simple test image (1x1 pixel PNG)
+            const canvas = document.createElement('canvas');
+            canvas.width = 1;
+            canvas.height = 1;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'red';
+            ctx.fillRect(0, 0, 1, 1);
+            
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('file', blob, 'test.png');
+                
+                console.log('Uploading test image...');
+                
+                try {
+                    const uploadResponse = await fetch(`${BASE_URL}/photos/upload`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                        },
+                        body: formData
+                    });
+                    
+                    if (uploadResponse.ok) {
+                        const uploadData = await uploadResponse.json();
+                        console.log('✅ Test upload successful:', uploadData.photoUrl);
+                        
+                        // Immediately try to access the uploaded image
+                        const testUrl = uploadData.photoUrl;
+                        
+                        console.log('Testing immediate access...');
+                        const immediateTest = await fetch(testUrl, { method: 'HEAD' });
+                        console.log('📊 Immediate access:', immediateTest.status, immediateTest.ok);
+                        
+                        // Test after 1 second
+                        setTimeout(async () => {
+                            console.log('Testing access after 1 second...');
+                            const delayedTest = await fetch(testUrl, { method: 'HEAD' });
+                            console.log('📊 Delayed access (1s):', delayedTest.status, delayedTest.ok);
+                        }, 1000);
+                        
+                        // Test after 5 seconds
+                        setTimeout(async () => {
+                            console.log('Testing access after 5 seconds...');
+                            const delayedTest2 = await fetch(testUrl, { method: 'HEAD' });
+                            console.log('📊 Delayed access (5s):', delayedTest2.status, delayedTest2.ok);
+                        }, 5000);
+                        
+                    } else {
+                        console.error('❌ Test upload failed:', uploadResponse.status);
+                    }
+                } catch (error) {
+                    console.error('❌ Upload error:', error);
+                }
+            }, 'image/png');
+            
+        } catch (error) {
+            console.error('❌ Test setup error:', error);
+        }
+    };
+
+    // New function to check backend photo storage
+    window.checkBackendStorage = async function() {
+        console.log('=== CHECKING BACKEND STORAGE ===');
+        
+        try {
+            const response = await fetch(`${BASE_URL}/photos/debug/list`, {
+                headers: authHeaders()
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📁 Backend storage info:', data);
+                
+                if (data.files && data.files.length > 0) {
+                    console.log(`Found ${data.files.length} files in storage:`);
+                    data.files.forEach((file, index) => {
+                        console.log(`  ${index + 1}. ${file}`);
+                    });
+                } else {
+                    console.log('⚠️ No files found in storage directory');
+                }
+            } else {
+                console.error('❌ Failed to get storage info:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ Error checking backend storage:', error);
+        }
+    };
+
     // Activities viewing functions
     window.viewOperationActivities = async function(operationExecutionId) {
         console.log('Viewing activities for operation:', operationExecutionId);
@@ -2020,9 +2374,18 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
 
     // Photo viewing functions
     window.viewPhotoModal = function(photoUrl) {
+        // Add cache-busting and error handling
+        const cacheBustUrl = photoUrl + (photoUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+        
         openModal('Photo View', `
             <div class="photo-viewer">
-                <img src="${photoUrl}" alt="Activity photo" style="max-width: 100%; max-height: 80vh; border-radius: 8px;">
+                <img src="${cacheBustUrl}" alt="Activity photo" 
+                     style="max-width: 100%; max-height: 80vh; border-radius: 8px;"
+                     onerror="this.onerror=null; this.src='${photoUrl}'; this.style.border='2px solid red';"
+                     onload="console.log('Photo loaded successfully:', '${photoUrl}');">
+                <div style="margin-top: 10px; font-size: 12px; color: #666; word-break: break-all;">
+                    URL: ${photoUrl}
+                </div>
             </div>
         `);
     };
@@ -2078,22 +2441,94 @@ window.loadParcelsForOperation = async function(operationExecutionId) {
     window.viewAllPhotos = function(activityId, photoUrls) {
         const canDelete = canAddActivityInfo(); // Check if user can delete photos
         
-        const photosHtml = photoUrls.map((url, index) => `
+        // Add debug information
+        console.log('ViewAllPhotos called with:', { activityId, photoUrls, photoCount: photoUrls.length });
+        
+        const photosHtml = photoUrls.map((url, index) => {
+            return `
             <div class="photo-gallery-item">
                 <div class="activity-photo-container">
-                    <img src="${url}" alt="Activity photo ${index + 1}" class="gallery-photo" onclick="viewPhotoModal('${url}')">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjgwIiBoZWlnaHQ9IjgwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik00MCA0NEMyMS4xMDQ2IDQ0IDQ0IDQxLjEwNDYgNDQgNDBDNDQgMzguODk1NCA0MS4xMDQ2IDM2IDQwIDM2QzM4Ljg5NTQgMzYgMzYgMzguODk1NCAzNiA0MEMzNiA0MS4xMDQ2IDM4Ljg5NTQgNDQgNDAgNDRaIiBmaWxsPSIjOUNBM0FGIi8+Cjwvc3ZnPgo=" 
+                         alt="Loading full size..." class="gallery-photo loading-placeholder-gallery" 
+                         data-actual-src="${url}" data-photo-index="${index}"
+                         onclick="viewPhotoModal('${url}')" title="Loading photo ${index + 1}...">
                     ${canDelete ? `
                         <button class="delete-photo-btn gallery-delete-btn" onclick="deleteActivityPhoto('${activityId}', '${url}', event)" title="Delete photo">×</button>
                     ` : ''}
                 </div>
+                <div class="photo-error-gallery" style="display: none; padding: 8px; background: #f8f9fa; border: 1px dashed #dc3545; text-align: center; font-size: 10px; color: #dc3545; border-radius: 4px; margin-top: 4px;">
+                    ⚠️ Failed to load photo ${index + 1}<br>
+                    <button onclick="retryGalleryPhoto(this, '${url}')" style="font-size: 9px; padding: 2px 6px; margin-top: 4px; border: 1px solid #dc3545; background: white; color: #dc3545; border-radius: 2px; cursor: pointer;">Retry</button>
+                </div>
+                <div style="font-size: 10px; color: #666; margin-top: 4px; word-break: break-all;">
+                    Photo ${index + 1}: ${url.split('/').pop()}
+                </div>
             </div>
-        `).join('');
+        `}).join('');
 
         openModal('All Photos', `
             <div class="photo-gallery">
+                <div style="margin-bottom: 15px; font-size: 12px; color: #666;">
+                    Showing ${photoUrls.length} photo${photoUrls.length !== 1 ? 's' : ''} for activity ${activityId}
+                    <button onclick="retryAllGalleryPhotos()" style="margin-left: 10px; font-size: 10px; padding: 2px 6px; border: 1px solid #007bff; background: white; color: #007bff; border-radius: 2px; cursor: pointer;">Retry All</button>
+                </div>
                 ${photosHtml}
             </div>
             ${canDelete ? `<p style="text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d;">Click × on any photo to delete it</p>` : ''}
         `);
+
+        // Load gallery photos after modal is shown
+        setTimeout(() => {
+            loadGalleryPhotos();
+        }, 100);
     };
+
+    window.retryGalleryPhoto = function(button, url) {
+        const container = button.closest('.photo-gallery-item');
+        const imgElement = container.querySelector('img');
+        const errorDiv = container.querySelector('.photo-error-gallery');
+        
+        errorDiv.style.display = 'none';
+        imgElement.style.display = 'block';
+        imgElement.classList.add('loading-placeholder-gallery');
+        
+        loadPhotoWithRetry(imgElement, url, 2)
+            .catch(() => {
+                imgElement.style.display = 'none';
+                errorDiv.style.display = 'block';
+            });
+    };
+
+    window.retryAllGalleryPhotos = function() {
+        const placeholders = document.querySelectorAll('.loading-placeholder-gallery[data-actual-src]');
+        placeholders.forEach(img => {
+            if (img.dataset.actualSrc) {
+                loadPhotoWithRetry(img, img.dataset.actualSrc, 2)
+                    .catch(() => {
+                        const container = img.closest('.photo-gallery-item');
+                        const errorDiv = container.querySelector('.photo-error-gallery');
+                        img.style.display = 'none';
+                        if (errorDiv) errorDiv.style.display = 'block';
+                    });
+            }
+        });
+    };
+
+    function loadGalleryPhotos() {
+        const placeholders = document.querySelectorAll('.loading-placeholder-gallery[data-actual-src]');
+        
+        placeholders.forEach((img, index) => {
+            // Stagger the loading to avoid overwhelming the server
+            setTimeout(() => {
+                const url = img.dataset.actualSrc;
+                loadPhotoWithRetry(img, url, 3)
+                    .catch(() => {
+                        const container = img.closest('.photo-gallery-item');
+                        const errorDiv = container.querySelector('.photo-error-gallery');
+                        img.style.display = 'none';
+                        if (errorDiv) errorDiv.style.display = 'block';
+                    });
+            }, index * 300); // 300ms delay between each photo
+        });
+    }
 });

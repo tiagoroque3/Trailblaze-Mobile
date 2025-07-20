@@ -327,7 +327,7 @@ class _PoExecutionDashboardState extends State<PoExecutionDashboard> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Worksheet: ${sheet.associatedWorkSheetId}',
+                'Work Sheet: ${sheet.associatedWorkSheetId}',
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 4),

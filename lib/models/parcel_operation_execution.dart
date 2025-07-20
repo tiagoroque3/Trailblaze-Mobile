@@ -9,6 +9,7 @@ class ParcelOperationExecution {
   final String? assignedOperatorId;
   final String?
   assignedUsername; // Username do PO assigned a esta ParcelOperationExecution
+  final double? expectedArea;
   OperationExecution? operationExecution;
   List<Activity> activities;
 
@@ -19,6 +20,7 @@ class ParcelOperationExecution {
     required this.status,
     this.assignedOperatorId,
     this.assignedUsername,
+    this.expectedArea,
     this.operationExecution,
     this.activities = const [],
   });
@@ -31,6 +33,7 @@ class ParcelOperationExecution {
       status: json['status'] ?? 'PENDING',
       assignedOperatorId: json['assignedOperatorId'],
       assignedUsername: json['assignedUsername'],
+      expectedArea: (json['expectedArea'] as num?)?.toDouble(),
     );
   }
 }

@@ -190,7 +190,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                     children: [
                       Text(
                         widget.parcelOperation.operationExecution?.name ??
-                            'Unknown Operation',
+                            'Operation ${widget.parcelOperation.operationExecutionId}',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,

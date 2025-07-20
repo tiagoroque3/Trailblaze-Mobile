@@ -69,7 +69,7 @@ class _PrboAssignParcelScreenState extends State<PrboAssignParcelScreen> {
             'operationId': opExec['operationId'],
             'executionId': opExec['id'],
             'displayName':
-                'Execution ID: ${opExec['id']}',
+                'Operation ${opExec['operationId']}',
           };
         }).toList();
         _operationsLoading = false;

@@ -167,17 +167,17 @@ class _PrboParcelActivityScreenState extends State<PrboParcelActivityScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _buildDetailRow('Execution ID:', operation?.id ?? 'N/A'),
+                    _buildDetailRow('Operation ID:', operation?.id ?? 'N/A'),
                     const SizedBox(height: 8),
                     _buildDetailRow(
-                      'Parcel ID:',
+                      'Parcel:',
                       widget.parcelOperationExecution.parcelId,
                     ),
                     if (widget.parcelOperationExecution.assignedUsername !=
                         null) ...[
                       const SizedBox(height: 8),
                       _buildDetailRow(
-                        'Assigned to:',
+                        'Assigned PO:',
                         widget.parcelOperationExecution.assignedUsername!,
                       ),
                     ],

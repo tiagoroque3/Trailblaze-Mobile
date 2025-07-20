@@ -5,6 +5,8 @@ class ExecutionSheet {
   final String associatedWorkSheetId;
   final String associatedUser;
   final double percentExecuted;
+  final DateTime? startDate;
+  final DateTime? lastActivity;
   bool isAssignedToCurrentUser; // Add this field
 
   ExecutionSheet({
@@ -14,6 +16,8 @@ class ExecutionSheet {
     required this.associatedWorkSheetId,
     required this.associatedUser,
     this.percentExecuted = 0.0,
+    this.startDate,
+    this.lastActivity,
     this.isAssignedToCurrentUser = false, // Initialize to false
   });
 
@@ -25,6 +29,12 @@ class ExecutionSheet {
       associatedWorkSheetId: json['associatedWorkSheetId'] ?? '',
       associatedUser: json['associatedUser'] ?? '',
       percentExecuted: (json['percentExecuted'] as num?)?.toDouble() ?? 0.0,
+      startDate: json['startDate'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['startDate'])
+          : null,
+      lastActivity: json['lastActivity'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(json['lastActivity'])
+          : null,
     );
   }
 }

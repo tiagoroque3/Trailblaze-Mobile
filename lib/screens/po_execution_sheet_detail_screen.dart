@@ -212,7 +212,7 @@ class _PoExecutionSheetDetailsScreenState
                         const SizedBox(height: 4),
                         Text(
                           parcelOp.operationExecution?.name ??
-                              'Unknown Operation',
+                              'Operation ${parcelOp.operationExecutionId}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade600,

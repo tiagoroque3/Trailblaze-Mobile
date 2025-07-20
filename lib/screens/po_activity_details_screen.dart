@@ -66,10 +66,14 @@ class PoActivityDetailsScreen extends StatelessWidget {
                       formatDateTime(activity.endTime),
                     ),
                     const Divider(),
+                    _buildDetailRow(
+                      'Status:',
+                      activity.endTime != null ? 'Completed' : 'Ongoing',
+                    ),
                     if (activity.observations != null &&
                         activity.observations!.isNotEmpty) ...[
-                      _buildDetailRow('Observations:', activity.observations!),
                       const Divider(),
+                      _buildDetailRow('Observations:', activity.observations!),
                     ],
                   ],
                 ),

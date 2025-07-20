@@ -389,12 +389,12 @@ class _PrboExecutionDashboardState extends State<PrboExecutionDashboard> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Worksheet: ${sheet.associatedWorkSheetId}',
+                'Work Sheet ID: ${sheet.associatedWorkSheetId}',
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 4),
               Text(
-                'Assigned to: ${sheet.associatedUser}',
+                'Associated User: ${sheet.associatedUser}',
                 style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               if (sheet.associatedUser == widget.username) ...[

@@ -96,19 +96,21 @@
 /* Sheets Grid */
 .sheets-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 24px;
+    padding: 8px;
 }
 
 .sheet-card {
-    background: #f8f9fa;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
     border: 2px solid #e0e6ed;
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 16px;
+    padding: 24px;
     transition: all 0.3s ease;
     cursor: pointer;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
 }
 
 .sheet-card::before {
@@ -118,8 +120,9 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(79, 105, 91, 0.1), transparent);
-    transition: left 0.5s;
+    background: linear-gradient(90deg, transparent, rgba(79, 105, 91, 0.15), transparent);
+    transition: left 0.6s ease;
+    z-index: 1;
 }
 
 .sheet-card:hover::before {
@@ -128,34 +131,42 @@
 
 .sheet-card:hover {
     border-color: #4f695B;
-    box-shadow: 0 8px 25px rgba(79, 105, 91, 0.15);
-    transform: translateY(-3px);
+    box-shadow: 0 12px 35px rgba(79, 105, 91, 0.2);
+    transform: translateY(-5px);
 }
 
 .sheet-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 15px;
+    margin-bottom: 18px;
+    position: relative;
+    z-index: 2;
 }
 
 .sheet-title {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
     color: #4f695B;
     margin: 0;
     flex: 1;
     margin-right: 10px;
+    background: linear-gradient(135deg, #4f695B, #7f9e8e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .sheet-status {
-    padding: 4px 12px;
-    border-radius: 20px;
+    padding: 6px 16px;
+    border-radius: 25px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.8px;
     white-space: nowrap;
+    position: relative;
+    overflow: hidden;
 }
 
 .status-pending {
@@ -183,19 +194,25 @@
 }
 
 .sheet-info {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    background: rgba(79, 105, 91, 0.05);
+    padding: 16px;
+    border-radius: 12px;
+    border-left: 4px solid #4f695B;
+    position: relative;
+    z-index: 2;
 }
 
 .sheet-info p {
-    margin: 5px 0;
+    margin: 8px 0;
     font-size: 14px;
-    color: #6c757d;
-    line-height: 1.4;
+    color: #495057;
+    line-height: 1.6;
 }
 
 .sheet-info strong {
     color: #4f695B;
-    font-weight: 600;
+    font-weight: 700;
 }
 
 .sheet-actions {

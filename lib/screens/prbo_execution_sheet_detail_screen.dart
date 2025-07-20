@@ -182,12 +182,12 @@ class _PrboExecutionSheetDetailsScreenState
                     ),
                     const SizedBox(height: 12),
                     _buildDetailRow(
-                      'Worksheet ID:',
+                      'Work Sheet ID:',
                       widget.sheet.associatedWorkSheetId,
                     ),
                     const SizedBox(height: 8),
                     _buildDetailRow(
-                      'Assigned to:',
+                      'Associated User:',
                       widget.sheet.associatedUser,
                     ),
                     const SizedBox(height: 8),
@@ -337,14 +337,14 @@ class _PrboExecutionSheetDetailsScreenState
           ),
           const SizedBox(height: 16),
           Text(
-            'No operations found',
+            'No parcels found',
             style: Theme.of(
               context,
             ).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
-            'This execution sheet doesn\'t have any operations yet',
+            'This execution sheet doesn\'t have any assigned parcels yet',
             textAlign: TextAlign.center,
             style: Theme.of(
               context,
@@ -408,7 +408,7 @@ class _PrboExecutionSheetDetailsScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          operation?.id ?? 'Unknown Operation',
+                          'Operation ${operation?.id ?? 'Unknown'}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -417,7 +417,7 @@ class _PrboExecutionSheetDetailsScreenState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Parcel: ${parcel.parcelId}',
+                          'Parcel ${parcel.parcelId}',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey.shade600,
@@ -426,7 +426,7 @@ class _PrboExecutionSheetDetailsScreenState
                         if (parcel.assignedUsername != null) ...[
                           const SizedBox(height: 4),
                           Text(
-                            'Assigned to: ${parcel.assignedUsername}',
+                            'Assigned PO: ${parcel.assignedUsername}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.blue.shade700,
