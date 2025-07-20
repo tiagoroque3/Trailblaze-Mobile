@@ -104,36 +104,40 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
     }
   }
 
-  void _createWorksheetPolygons() {
-    Set<Polygon> polygons = {};
-    
-    for (var worksheet in _nearbyWorksheets) {
-      final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
-      
-      for (int i = 0; i < parcels.length; i++) {
-        final parcel = parcels[i];
-        if (parcel['coordinates'] != null && parcel['coordinates'].length >= 3) {
-          List<LatLng> polygonPoints = (parcel['coordinates'] as List<dynamic>)
-              .map((coord) => LatLng(coord[0], coord[1]))
-              .toList();
-          
-          polygons.add(
-            Polygon(
-              polygonId: PolygonId('${worksheet['id']}_${parcel['id']}'),
-              points: polygonPoints,
-              fillColor: Colors.orange.withOpacity(0.2),
-              strokeColor: Colors.orange.withOpacity(0.6),
-              strokeWidth: 2,
-            ),
-          );
-        }
+ void _createWorksheetPolygons() {
+  final Set<Polygon> polygons = {};
+
+  for (var worksheet in _nearbyWorksheets) {
+    final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
+
+    for (var parcel in parcels) {
+      final coords = parcel['coordinates'] as List<dynamic>? ?? [];
+      if (coords.length >= 3) {
+        // Converte cada par [lon, lat] em LatLng(lat, lon)
+        final List<LatLng> polygonPoints = coords.map((coord) {
+          final lon = (coord[0] as num).toDouble();
+          final lat = (coord[1] as num).toDouble();
+          return LatLng(lat, lon);
+        }).toList();
+
+        polygons.add(
+          Polygon(
+            polygonId: PolygonId('${worksheet['id']}_${parcel['id']}'),
+            points: polygonPoints,
+            fillColor: Colors.orange.withOpacity(0.2),
+            strokeColor: Colors.orange.withOpacity(0.6),
+            strokeWidth: 2,
+          ),
+        );
       }
     }
-    
-    setState(() {
-      _polygons = polygons;
-    });
   }
+
+  setState(() {
+    _polygons = polygons;
+  });
+}
+
 
   void _startRecording() {
     setState(() {
@@ -182,68 +186,64 @@ class _CreateTrailScreenState extends State<CreateTrailScreen> {
       print('Error recording location: $e');
     }
   }
+void _checkProximityToWorksheets() {
+  if (_recordedPoints.isEmpty || _nearbyWorksheets.isEmpty) return;
 
-  void _checkProximityToWorksheets() {
-    if (_recordedPoints.isEmpty || _nearbyWorksheets.isEmpty) return;
-    
-    final currentPoint = _recordedPoints.last;
-    bool foundNearby = false;
-    String? nearestWorksheetId;
-    double minDistance = double.infinity;
-    
-    for (var worksheet in _nearbyWorksheets) {
-      final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
-      
-      for (var parcel in parcels) {
-        if (parcel['coordinates'] != null && parcel['coordinates'].length >= 3) {
-          // Calculate centroid of parcel
-          double avgLat = 0;
-          double avgLng = 0;
-          int count = 0;
-          
-          for (var coord in parcel['coordinates']) {
-            avgLat += coord[0];
-            avgLng += coord[1];
-            count++;
-          }
-          
-          if (count > 0) {
-            avgLat /= count;
-            avgLng /= count;
-            
-            // Calculate distance to current point
-            double distance = Geolocator.distanceBetween(
-              currentPoint.latitude,
-              currentPoint.longitude,
-              avgLat,
-              avgLng,
-            ) / 1000; // Convert to km
-            
-            if (distance <= 5.0) { // Within 5km
-              foundNearby = true;
-              if (distance < minDistance) {
-                minDistance = distance;
-                nearestWorksheetId = worksheet['id'].toString();
-              }
-            }
-          }
-        }
+  final currentPoint = _recordedPoints.last;
+  bool foundNearby = false;
+  String? nearestWorksheetId;
+  double minDistance = double.infinity;
+
+  for (final worksheet in _nearbyWorksheets) {
+    final parcels = worksheet['parcels'] as List<dynamic>? ?? [];
+
+    for (final parcel in parcels.cast<Map<String, dynamic>>()) {
+      final coords = parcel['coordinates'] as List<dynamic>?;
+
+      if (coords == null || coords.length < 3) continue;
+
+      // Calcula centróide (lon, lat ordenados em cada sub-lista)
+      double sumLat = 0;
+      double sumLon = 0;
+      for (final c in coords) {
+        final lon = (c[0] as num).toDouble();
+        final lat = (c[1] as num).toDouble();
+        sumLat += lat;
+        sumLon += lon;
+      }
+      final centroidLat = sumLat / coords.length;
+      final centroidLon = sumLon / coords.length;
+
+      // Distância em km
+      final distanceKm = Geolocator.distanceBetween(
+        currentPoint.latitude,
+        currentPoint.longitude,
+        centroidLat,
+        centroidLon,
+      ) / 1000.0;
+
+      if (distanceKm <= 5.0 && distanceKm < minDistance) {
+        minDistance = distanceKm;
+        nearestWorksheetId = worksheet['id'].toString();
+        foundNearby = true;
       }
     }
-    
-    if (foundNearby && !_isNearWorksheet) {
-      setState(() {
-        _isNearWorksheet = true;
-        _associatedWorksheetId = nearestWorksheetId;
-      });
-      
-      _showWorksheetProximityDialog(nearestWorksheetId!, minDistance);
-    } else if (!foundNearby && _isNearWorksheet) {
-      setState(() {
-        _isNearWorksheet = false;
-      });
-    }
   }
+
+  if (foundNearby && !_isNearWorksheet) {
+    setState(() {
+      _isNearWorksheet = true;
+      _associatedWorksheetId = nearestWorksheetId;
+    });
+    _showWorksheetProximityDialog(nearestWorksheetId!, minDistance);
+  } else if (!foundNearby && _isNearWorksheet) {
+    setState(() {
+      _isNearWorksheet = false;
+    });
+  }
+}
+
+
 
   void _showWorksheetProximityDialog(String worksheetId, double distance) {
     showDialog(
