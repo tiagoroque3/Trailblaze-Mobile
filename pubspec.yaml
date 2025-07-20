@@ -55,7 +55,7 @@ dependencies:
   cached_network_image: ^3.3.0
   path_provider: ^2.1.1
   permission_handler: ^11.0.1
-  # flutter_background_geolocation: ^4.0.3  # Temporariamente comentado devido a problema de conectividade
+  background_location: ^0.13.0
 
   # Notifications
   flutter_local_notifications: ^17.1.2

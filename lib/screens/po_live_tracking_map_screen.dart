@@ -5,10 +5,8 @@ import 'package:trailblaze_app/models/parcel_operation_execution.dart';
 import 'package:trailblaze_app/services/execution_service.dart';
 import 'package:trailblaze_app/utils/app_constants.dart';
 import 'package:trailblaze_app/utils/map_utils.dart';
-// import 'package:flutter_background_geolocation/flutter_background_geolocation.dart'
-//     as bg; // Temporariamente comentado
+import 'package:background_location/background_location.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:geolocator/geolocator.dart';
 
 class PoLiveTrackingMapScreen extends StatefulWidget {
   final ParcelOperationExecution parcelOperation;
@@ -33,7 +31,6 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
   final Set<Marker> _markers = {};
   bool _isInsideParcel = false;
   String _statusMessage = 'Initializing...';
-  List<LatLng> _parcelGeometry = [];
 
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
       FlutterLocalNotificationsPlugin();
@@ -43,12 +40,12 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _showBatteryWarning());
     _initializeNotifications();
-    // _initializeBackgroundGeolocation(); // Temporariamente comentado
+    _initializeBackgroundLocation();
   }
 
   @override
   void dispose() {
-    // bg.BackgroundGeolocation.stop(); // Temporariamente comentado
+    BackgroundLocation.stopLocationService();
     _mapController?.dispose();
     super.dispose();
   }
@@ -75,40 +72,22 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
         .show(0, title, body, platformChannelSpecifics, payload: 'item x');
   }
 
-  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
-  /*
-  void _initializeBackgroundGeolocation() {
-    bg.BackgroundGeolocation.onLocation((bg.Location location) {
-      if (!mounted) return;
-      final currentLatLng = LatLng(
-          location.coords.latitude,
-          location.coords.longitude);
-      _updateUserMarker(currentLatLng);
-      _checkIfInsideParcel(currentLatLng);
-    });
+  void _initializeBackgroundLocation() {
+    BackgroundLocation.setAndroidNotification(
+      title: "Trailblaze",
+      message: "Location tracking is running in the background",
+    );
 
-    bg.BackgroundGeolocation.onGeofence((bg.GeofenceEvent event) async {
-      if (event.action == 'EXIT') {
-        await _showNotification('Parcel Exit Warning',
-            'You have left the designated parcel area.');
-      }
-      _updateStatusBasedOnGeofence(event);
-    });
+    BackgroundLocation.startLocationService();
 
-    bg.BackgroundGeolocation.ready(bg.Config(
-            desiredAccuracy: bg.Config.DESIRED_ACCURACY_HIGH,
-            distanceFilter: 10.0,
-            stopOnTerminate: false,
-            startOnBoot: true,
-            debug: true,
-            logLevel: bg.Config.LOG_LEVEL_VERBOSE))
-        .then((bg.State state) {
-      if (!state.enabled) {
-        bg.BackgroundGeolocation.start();
-      }
+    BackgroundLocation.getLocationUpdates((location) {
+        if (!mounted || location.latitude == null || location.longitude == null) return;
+        final currentLatLng = LatLng(location.latitude!, location.longitude!);
+        _updateUserMarker(currentLatLng);
+        _checkIfInsideParcel(currentLatLng);
     });
   }
-  */
+
 
   Future<void> _showBatteryWarning() async {
     await showDialog(
@@ -158,7 +137,6 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       );
 
       if (mounted && geometry.isNotEmpty) {
-        _parcelGeometry = geometry;
         setState(() {
           final parcelPolygon = Polygon(
             polygonId: PolygonId(widget.parcelOperation.parcelId),
@@ -170,53 +148,12 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
           _polygons.add(parcelPolygon);
         });
         _centerOnParcel();
-        // _addGeofence(); // Temporariamente comentado
       } else if (mounted) {
         _showSnackBar('Could not load parcel boundary.', isError: true);
       }
     } catch (e) {
       _showSnackBar('Failed to load parcel boundary: $e', isError: true);
     }
-  }
-
-  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
-  /*
-  Future<void> _addGeofence() async {
-    if (_parcelGeometry.isEmpty) return;
-    final center = _calculateCentroid(_parcelGeometry);
-    final radius = _calculateRadius(center, _parcelGeometry);
-
-    await bg.BackgroundGeolocation.addGeofence(bg.Geofence(
-      identifier: "parcel_${widget.parcelOperation.parcelId}",
-      radius: radius,
-      latitude: center.latitude,
-      longitude: center.longitude,
-      notifyOnEntry: true,
-      notifyOnExit: true,
-    ));
-  }
-  */
-
-  LatLng _calculateCentroid(List<LatLng> points) {
-    double latitude = 0;
-    double longitude = 0;
-    for (var point in points) {
-      latitude += point.latitude;
-      longitude += point.longitude;
-    }
-    return LatLng(latitude / points.length, longitude / points.length);
-  }
-
-  double _calculateRadius(LatLng center, List<LatLng> points) {
-    double maxDistance = 0;
-    for (var point in points) {
-      final distance = Geolocator.distanceBetween(center.latitude,
-          center.longitude, point.latitude, point.longitude);
-      if (distance > maxDistance) {
-        maxDistance = distance;
-      }
-    }
-    return maxDistance;
   }
 
   void _updateUserMarker(LatLng position) {
@@ -238,6 +175,13 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
     if (_polygons.isNotEmpty) {
       final polygonPoints = _polygons.first.points;
       final isInside = MapUtils.isPointInPolygon(position, polygonPoints);
+
+      if (_isInsideParcel && !isInside) {
+        // User just exited the parcel
+        _showNotification(
+            'Parcel Exit Warning', 'You have left the designated parcel area.');
+      }
+
       _setStatus(
         isInside
             ? 'You are inside the parcel.'
@@ -246,17 +190,6 @@ class _PoLiveTrackingMapScreenState extends State<PoLiveTrackingMapScreen> {
       );
     }
   }
-
-  // Função temporariamente comentada devido ao plugin flutter_background_geolocation
-  /*
-  void _updateStatusBasedOnGeofence(bg.GeofenceEvent event) {
-    _setStatus(
-        event.action == 'ENTER'
-            ? 'You have entered the parcel.'
-            : 'WARNING: You have exited the parcel',
-        isError: event.action == 'EXIT');
-  }
-  */
 
   void _centerOnParcel() {
     if (_polygons.isEmpty || _mapController == null) {
