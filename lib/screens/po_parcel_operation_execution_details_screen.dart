@@ -65,10 +65,7 @@ class _PoParcelOperationExecutionDetailsScreenState
                       widget.parcelOperation.operationExecutionId,
                     ),
                     const SizedBox(height: 8),
-                    _buildDetailRow(
-                      'Parcel:',
-                      widget.parcelOperation.parcelId,
-                    ),
+                    _buildDetailRow('Parcel:', widget.parcelOperation.parcelId),
                     if (widget.parcelOperation.assignedUsername != null) ...[
                       const SizedBox(height: 8),
                       _buildDetailRow(
@@ -112,12 +109,7 @@ class _PoParcelOperationExecutionDetailsScreenState
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontSize: 14),
-          ),
-        ),
+        Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
       ],
     );
   }
@@ -135,17 +127,17 @@ class _PoParcelOperationExecutionDetailsScreenState
           const SizedBox(height: 16),
           Text(
             'No activities yet',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
             'Your activities for this parcel will appear here',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey.shade500,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -158,9 +150,7 @@ class _PoParcelOperationExecutionDetailsScreenState
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
@@ -218,27 +208,18 @@ class _PoParcelOperationExecutionDetailsScreenState
               const SizedBox(height: 8),
               Text(
                 'Operator: ${activity.operatorId}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 4),
               Text(
                 'Start Time: ${DateFormat('yyyy-MM-dd HH:mm').format(activity.startTime)}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
               ),
               if (activity.endTime != null) ...[
                 const SizedBox(height: 4),
                 Text(
                   'End Time: ${DateFormat('yyyy-MM-dd HH:mm').format(activity.endTime!)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                 ),
               ],
               if (activity.observations != null &&

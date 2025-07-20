@@ -32,10 +32,8 @@ class OperationExecution {
       executionSheetId: json['executionSheetId'] ?? '',
       state: json['state'] ?? 'PENDING',
       percentExecuted: (json['percentExecuted'] as num?)?.toDouble() ?? 0.0,
-      expectedTotalArea:
-          (json['expectedTotalArea'] as num?)?.toDouble() ?? 0.0,
-      totalExecutedArea:
-          (json['totalExecutedArea'] as num?)?.toDouble() ?? 0.0,
+      expectedTotalArea: (json['expectedTotalArea'] as num?)?.toDouble() ?? 0.0,
+      totalExecutedArea: (json['totalExecutedArea'] as num?)?.toDouble() ?? 0.0,
       startDate: json['startDate'] != null
           ? DateTime.fromMillisecondsSinceEpoch(json['startDate'])
           : null,

@@ -46,24 +46,25 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
 
   Future<void> _startNewActivity() async {
     final confirm = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('Start New Activity'),
-              content: const Text(
-                  'Are you sure you want to start a new activity?'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen),
-                  child: const Text('Start'),
-                ),
-              ],
-            ));
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start New Activity'),
+        content: const Text('Are you sure you want to start a new activity?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+            ),
+            child: const Text('Start'),
+          ),
+        ],
+      ),
+    );
 
     if (confirm != true) return;
 
@@ -221,8 +222,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primaryGreen,
                               foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                           ),
                         ),
@@ -259,17 +259,17 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
           const SizedBox(height: 16),
           Text(
             'No activities yet',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.grey.shade600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(color: Colors.grey.shade600),
           ),
           const SizedBox(height: 8),
           Text(
             'Start your first activity for this parcel',
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey.shade500,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey.shade500),
           ),
         ],
       ),
@@ -282,9 +282,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -324,8 +322,9 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed:
-                          _isLoading ? null : () => _stopActivity(activity),
+                      onPressed: _isLoading
+                          ? null
+                          : () => _stopActivity(activity),
                       icon: const Icon(Icons.stop_circle_outlined, size: 20),
                       label: const Text('Stop'),
                       style: ElevatedButton.styleFrom(
@@ -360,7 +359,7 @@ class _PoParcelActivityScreenState extends State<PoParcelActivityScreen> {
                     side: const BorderSide(color: AppColors.primaryGreen),
                   ),
                 ),
-              )
+              ),
           ],
         ),
       ),

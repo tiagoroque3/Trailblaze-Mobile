@@ -88,7 +88,7 @@ class _PoExecutionSheetDetailsScreenState
             icon: const Icon(Icons.refresh),
             onPressed: _refreshData,
             tooltip: 'Refresh',
-          )
+          ),
         ],
       ),
       body: FutureBuilder<List<ParcelOperationExecution>>(
@@ -166,10 +166,12 @@ class _PoExecutionSheetDetailsScreenState
         .toList();
 
     // Correctly count ongoing and completed activities for the user
-    final ongoingActivities =
-        myActivities.where((a) => a.endTime == null).length;
-    final completedActivities =
-        myActivities.where((a) => a.endTime != null).length;
+    final ongoingActivities = myActivities
+        .where((a) => a.endTime == null)
+        .length;
+    final completedActivities = myActivities
+        .where((a) => a.endTime != null)
+        .length;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
